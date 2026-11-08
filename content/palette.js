@@ -37,10 +37,25 @@ const COMMANDS = [
   ['Copy text of the post in the middle', 'copy post text words tweet', () => onCentre(copyPostText)],
   ['Save the post in the middle as an image', 'save post image picture screenshot download', () => onCentre(savePostImage)],
   ['Keys on this page', 'keys shortcuts help cheat sheet keyboard', () => startHelp()],
+  ['Undo the last new single key', 'undo single key label learned revert', () => undoNewKey()],
+  ['Leave a key to this site', 'leave key site pass through keep conflict shortcut', () => startPassKey()],
+  ['Forget clicks learned here', 'forget learned clicks hints reset', async () => {
+    const n = await forgetLearned(); // learn.js
+    toast(n ? `Forgot ${n} learned click target${n === 1 ? '' : 's'} on ${location.hostname}` : 'Nothing learned from clicks here');
+  }],
+  ['Move tab to a new group', 'tab group new create add', () => tabGroup('new')],
+  ['Remove tab from its group', 'tab group remove ungroup leave', () => tabGroup('leave')],
+  ['Collapse other tab groups', 'tab groups collapse fold others', () => tabGroup('collapse-others')],
+  ['Next tab group', 'tab group next switch jump', () => tabGroup('next')],
   ['Repeat last action', 'again repeat', () => repeatLast()],
   ['Settings', 'settings options preferences', () => bg('open-options')],
   ['Single-key shortcuts on/off here', 'toggle site shortcuts disable enable', () => toggleSite()],
 ].map(([title, words, run]) => ({ kind: 'command', title, words, run }));
+
+async function tabGroup(op, groupId) {
+  const { message } = await bg('tab-group', { op, groupId });
+  if (message) toast(message);
+}
 
 // Pinned tabs are kept, as with the browser's own "Close other tabs".
 async function closeTabs(which) {
@@ -138,6 +153,8 @@ async function refreshPalette() {
     ...res.tabs.map((t) => ({ kind: 'tab', title: t.title, url: t.url, run: () => bg('switch-tab', { tabId: t.id, windowId: t.windowId }) })),
     ...res.bookmarks.map((b) => ({ kind: 'bookmark', title: b.title || b.url, url: b.url })),
     ...res.history.map((h) => ({ kind: 'history', title: h.title || h.url, url: h.url })),
+    ...res.groups.map((g) => ({ kind: 'command', title: `Move tab to group: ${g.title}`, words: 'tab group move add join',
+      run: () => tabGroup('join', g.id) })),
     // Bookmarks and history are an optional permission, granted in settings (it needs a click there).
     ...(res.searchAllowed ? [] : [{ kind: 'command', title: 'Search bookmarks and history too (allow in settings)',
       words: 'bookmark bookmarks history allow search permission', run: () => bg('open-options') }]),

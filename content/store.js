@@ -19,7 +19,25 @@ function readSettings(stored) {
     alphabet: (stored && stored.alphabet) || DEFAULT_ALPHABET,
     disabledSites: (stored && stored.disabledSites) || [],
     enabledSites: (stored && stored.enabledSites) || [], // built-in sites switched back on
+    passKeys: (stored && stored.passKeys) || {}, // { [host]: ['f', …] } keys left to the site, KeyHints ignores them there
   };
+}
+
+// Keys this site keeps for itself (YouTube's f for fullscreen) while every other KeyHints key works.
+const sitePassKeys = () => settings.passKeys[location.hostname] || [];
+
+// Gives `key` to this site, or takes it back. Read-modify-write of the stored settings, so changes
+// made meanwhile on the options page aren't lost. Returns true if the site now keeps the key.
+async function togglePassKey(key) {
+  const { settings: stored = {} } = await chrome.storage.local.get('settings');
+  const passKeys = { ...(stored.passKeys || {}) };
+  const host = location.hostname;
+  const keys = passKeys[host] || [];
+  const keeps = !keys.includes(key);
+  passKeys[host] = keeps ? [...keys, key] : keys.filter((k) => k !== key);
+  if (!passKeys[host].length) delete passKeys[host];
+  await chrome.storage.local.set({ settings: { ...stored, passKeys } });
+  return keeps;
 }
 
 const ready = chrome.storage.local.get(['settings', MEMORY_KEY]).then((r) => {
@@ -99,7 +117,8 @@ function learnedKeys() {
     .filter(([, e]) => e.label.length === 1 || e.pinned)
     .map(([sig, e]) => {
       const [, , , aria, , , placeholder, , href, text] = sig.split('|');
-      return { key: e.label, name: text || aria || placeholder || href || '(unnamed)', pinned: !!e.pinned, uses: usesOf(e) };
+      const name = text || aria || placeholder || href || '(unnamed)'; // signatures are lowercase
+      return { key: e.label, name: name[0].toUpperCase() + name.slice(1), pinned: !!e.pinned, uses: usesOf(e) };
     })
     .sort((a, b) => a.key.localeCompare(b.key));
 }

@@ -9,6 +9,11 @@ Click, focus, copy, hover, scroll and select on any page without a mouse.
    **Command palette** = `Alt+K`, **Post mode** = `Alt+I`.
 3. After pulling changes: click the reload icon on KeyHints, then reload open tabs.
 
+A first install opens a practice page (`welcome.html`): one pick, the learning toast, the palette,
+and the two opt-ins below. Nothing else ever opens by itself.
+
+No account, no analytics: KeyHints makes no network requests. Everything is in `chrome.storage.local`.
+
 ## Keys
 
 | Key | What it does |
@@ -24,7 +29,8 @@ Click, focus, copy, hover, scroll and select on any page without a mouse.
 | `Ctrl+←` / `Ctrl+→` | Previous / next tab (like `Ctrl+Shift+Tab` / `Ctrl+Tab`), when you're not typing in a field |
 | `` ` `` | Back to the tab you were on before (press again to come back) |
 | `]` `]` / `[` `[` | Next / previous page: follows the page's own Next / Older or Previous / Newer link |
-| `?` | Sheet of every key that works on this page. Any key closes it; `?` again opens the site's own list |
+| `?` | Sheet of every key that works on this page, with your learned keys for the site. Any key closes it; `?` again opens the site's own list |
+| `u` | Within 5 s of a "now has its own key" toast: undo it (later: palette, "undo the last new single key") |
 
 **While hints are showing** (labels stay the same when you switch modes):
 
@@ -55,13 +61,19 @@ Buttons are found by their names; controls that only show on hover get a hover f
 **Command palette** (`Alt+K`): type what you want, `Enter` runs it. Searches commands (back,
 scroll, new/close/next tab, last used tab, close other tabs / tabs to the right / duplicate tabs,
 next/previous page, mute tab, like/reply/mute/copy/save the post in the middle, keys on this page,
-repeat, settings, and the GitHub / Jira keys below on those pages…),
-everything clickable on screen, open tabs, bookmarks and history. `Shift+Enter` opens a page in
+tab groups (move the tab to a new group or to a group by name, take it out, collapse the other
+groups, next group), undo the last new single key, leave a key to this site, forget clicks learned
+here, repeat, settings, and the GitHub / Jira keys below on those pages…),
+everything clickable on screen, open tabs, and (once allowed in settings: they're optional
+permissions, asked for on a click, never at install) bookmarks and history. Until then a
+"Search bookmarks and history too" entry leads to settings. `Shift+Enter` opens a page in
 a background tab. Before you type, commands for the page lead the list (video controls while a video is on
 screen, the GitHub / Jira keys on those pages).
 
 **Voice**: `Alt+K`, then dictate (`Alt+Space` in Omarchy). Dictated text arrives all at once, so
 the top match runs by itself after 0.8 s; press any key to stop it. Typed text waits for `Enter`.
+There's no built-in speech recognition: Helium never finishes downloading Chromium's on-device
+speech pack, and the cloud alternative would send your audio to Google.
 
 **Video controls** (YouTube and Netflix, single keys, only while a video is on screen and you're
 not typing):
@@ -91,6 +103,11 @@ change status.
 keys belong to the site (YouTube: `k` play, `m` mute, `f` fullscreen). `Alt+J` still works. The
 toolbar button or settings switch this per site.
 
+**Keys left to a site** (palette: "leave a key to this site", then press the key): that one key goes
+to the site and every other KeyHints key keeps working there, e.g. YouTube keeps `f` for
+fullscreen while `F`, `;`, `?` and the video keys still work. Do it again with the same key to take
+it back. The `?` sheet and the settings site list show what each site keeps.
+
 **Toolbar button**: turns the single-key shortcuts (`f`, `F`, `;`, `y f`) off or on for the
 current site. The badge says `off` where they're off. `Alt+J` always works. A `!` badge means
 KeyHints isn't running in that tab: reload it (tabs opened before installing or updating), or
@@ -100,7 +117,23 @@ it's a browser page (`chrome://`, the Web Store) where extensions can't run.
 shortcuts as the browser has them (flags one another extension took), one list of sites where
 single keys are off (YouTube, Netflix, Gmail, Docs and Figma by default; Enter or paste an address
 to add one), hint letters (changing them keeps the saved labels that still fit), saved labels per
-site (view / forget; "forget all" asks for a second click).
+site (view / forget / copy keymap; "forget all" asks for a second click), your keys so far,
+share and back up, palette search, Show keys, tips.
+
+**Show keys** (settings, or the welcome page): a badge in the bottom-left corner shows the keys
+you press, and "Show hints" / "Palette" / "Post mode" for the browser shortcuts, for screen shares
+and recordings. Keys typed into a field or the palette are never shown, only Ctrl / Alt / Meta chords.
+
+**Tips**: one short note, once ever, the first time it's useful: on a site that keeps its own
+single keys, when a video first plays on YouTube / Netflix, on X (post mode). Off, or "show them
+again", in settings.
+
+**Your keys so far**: clicks, single keys and the busiest site, counted from your saved labels
+(practice picks on the welcome page don't count). "Save as image" downloads a 1200×630 card.
+
+**Share and back up**: "Copy keymap" copies one site's labels as text; pasting it into anyone's
+settings adds them (their own entries win; label clashes go to pinned, then most recent).
+"Download backup" saves every site's labels and the settings as JSON; restore from the file.
 
 ## Saved labels
 
@@ -117,6 +150,17 @@ key and a toast tells you which: the first letter of its name when it can have i
 picked less often; those get new labels next time. An element that learned a single key before this
 (Home on `T`) moves to its first letter on a later pick, once that letter is free. Letters outside
 the hint alphabet work too, except the hint-mode keys `c` `b` `m` `v` `x` `z`.
+
+**Learned keys stay put.** A single key you've learned is never taken by another element, however
+often that one is picked (Help can't take `H` from Home). A new single key can be undone: `u` right
+after its toast, or the palette's "undo the last new single key" later (also after the page
+reloaded); every label goes back to how it was. The `?` sheet lists your keys for the site.
+
+**Learning from your mouse.** Click something that had no hint, and if the click did something
+(the address changed, focus moved, or the page added or removed elements within half a second),
+KeyHints saves a selector for it on that site and hints it from then on. Clicks on plain text teach
+nothing; selectors that would match more than 40 elements aren't kept; at most 50 per site. Palette:
+"forget clicks learned here". Backups include them.
 
 **Identical elements** (every post's Like or mute button): the learned label goes to the copy
 nearest the centre of the screen; the other copies get ordinary labels.
@@ -137,9 +181,19 @@ If saved labels would force three-key labels, the least used (then least recent)
 cd test
 npm install          # once
 node run.mjs         # headless end-to-end suite (fixture pages, port 8765)
+node growth.mjs      # welcome page, Show keys, tips, settings share/backup (ports 8775/8776)
+node store-shots.mjs # Web Store screenshots 1280×800 and demo.webm in ../store (ports 8785/8786)
 node real-sites.mjs  # smoke test on Wikipedia, GitHub, Hacker News, YouTube, MDN (needs internet)
 node shots.mjs       # screenshots of hint theming, /tmp/keyhints-*.png
 ```
+
+`run.mjs` also writes [`COMPATIBILITY.md`](COMPATIBILITY.md): checks passed per area, with the
+browser version and date. It runs with the back/forward cache on (Playwright turns it off by
+default) to prove KeyHints doesn't stop pages being restored instantly on Back.
+
+`run.mjs` loads a scratch copy of the extension with bookmarks / history granted (the grant
+prompt can't be clicked headless); `growth.mjs` runs the real manifest, where they aren't.
+Listing copy and permission wording: `STORE.md`. Growth plan: `GROWTH.md`.
 
 ### Manual checklist for X (needs your login, so not automated)
 

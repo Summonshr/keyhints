@@ -63,7 +63,7 @@ Made by `test/store-shots.mjs` (writes `store/*.png`). In this order:
 2. **It learns your favourites.** The "Home now has its own key: H" note.
 3. **Go through your feed with j / k.** Post mode on a feed.
 4. **Video keys.** The "+30s" label over a video.
-5. **No account. No tracking.** The welcome page's privacy line and Show keys.
+5. **No account. No tracking. Nothing leaves your browser.** Over the welcome page.
 
 ## Demo video (30–45 s, no voice-over)
 

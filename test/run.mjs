@@ -64,10 +64,24 @@ const githubPull = `<!doctype html><body style="margin:0;font:14px sans-serif">
       onclick="const v = this.getAttribute('aria-pressed') !== 'true'; this.setAttribute('aria-pressed', v); this.setAttribute('aria-label', v ? 'Viewed' : 'Not Viewed')">Viewed</button></div>
     ${i === 1 ? '<div data-testid="review-thread" style="margin-top:400px">Looks wrong</div>' : ''}</div>`).join('')}
   <div style="height:1200px"></div>${logKeys}</body>`;
+// /learn: a JS-only "button" (no role, no pointer cursor) that opens something, next to plain text.
+const learnPage = `<meta charset="utf-8"><body style="font:14px sans-serif;margin:20px">
+  <div data-testid="open-panel" id="jsbtn" style="width:140px;height:30px;background:#ddd">Open panel</div>
+  <p id="plaintext">Plain words, clicking them does nothing.</p><div id="panel"></div>
+  <script>jsbtn.addEventListener('click', () => { const d = document.createElement('div'); d.textContent = 'panel'; panel.append(d); });</script></body>`;
+// /nav2: Home and Help share the initial H.
+const nav2 = `<body style="font:14px sans-serif;margin:10px"><nav><a id="home2" href="#home">Home</a> <a id="help2" href="#help">Help</a></nav>
+  <div style="display:grid;grid-template-columns:repeat(10,80px)">${Array.from({ length: 40 }, (_, i) => `<a href="#g${i}">Item ${i}</a>`).join('')}</div>
+  ${logKeys}</body>`;
+const slowPage = `<body><a id="early" href="#early">Early link</a><img src="/slow.png"></body>`;
+const bfPage = `<body><a id="bflink" href="/pager2">To page 2</a>
+  <script>addEventListener('pageshow', (e) => { window.restored = e.persisted; });</script></body>`;
 const jiraIssue = `<!doctype html><body><h1>ABC-42 Fix the thing</h1>${logKeys}</body>`;
 
 // localhost counts as a secure context, so the clipboard API works there.
 const server = createServer((req, res) => {
+  // /slow.png holds the page's load event for 3 s (hints must work before the page has loaded).
+  if (req.url === '/slow.png') return setTimeout(() => { res.writeHead(200, { 'content-type': 'image/png' }); res.end(); }, 3000);
   res.writeHead(200, { 'content-type': 'text/html' });
   const page = fixture.replace('RANDOMID', `radix-${Math.random().toString(36).slice(2, 8)}`); // a new id on every load
   // /shifted: same page with new links on top and a different number in the button text.
@@ -78,7 +92,8 @@ const server = createServer((req, res) => {
   const many = '<body style="margin:0;display:grid;align-content:start;grid-template-columns:repeat(20,50px);font:10px sans-serif">' +
     Array.from({ length: 300 }, (_, i) => `<a href="/m${i}" style="height:40px">L${i}</a>`).join('');
   const pages = { '/': page, '/shifted': shifted, '/many': many, '/frame': framePage, '/big': big, '/feed': feed,
-    '/pager': pager, '/pager2': pager2, '/nav': nav, '/xfeed': xfeed };
+    '/pager': pager, '/pager2': pager2, '/nav': nav, '/xfeed': xfeed, '/learn': learnPage, '/nav2': nav2,
+    '/slowpage': slowPage, '/bf': bfPage };
   res.end(pages[req.url] || `<h1>${req.url}</h1>`);
 });
 await new Promise((resolve) => server.listen(8765, '127.0.0.1', resolve));
@@ -139,8 +154,12 @@ async function closeWelcome(context) {
 }
 
 let failures = 0;
+const results = []; // { area, name, ok } for COMPATIBILITY.md
+let area = 'setup';
+const section = (name) => { area = name; };
 function check(name, ok, detail = '') {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : `  -> ${detail}`}`);
+  results.push({ area, name, ok: !!ok });
   if (!ok) failures++;
 }
 const prefixFree = (ls) => ls.every((a) => ls.every((b) => a === b || !b.startsWith(a)));
@@ -148,6 +167,7 @@ const prefixFree = (ls) => ls.every((a) => ls.every((b) => a === b || !b.startsW
 const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'keyhints-')), {
   executablePath: '/usr/bin/chromium',
   headless: true,
+  ignoreDefaultArgs: ['--disable-back-forward-cache'], // Playwright turns the cache off; users have it on
   args: [`--disable-extensions-except=${extPath}`, `--load-extension=${extPath}`,
     '--host-resolver-rules=MAP www.youtube.com:443 127.0.0.1:8766, MAP www.netflix.com:443 127.0.0.1:8766, MAP github.com:443 127.0.0.1:8766, MAP example.atlassian.net:443 127.0.0.1:8766',
     '--ignore-certificate-errors'],
@@ -229,7 +249,7 @@ const expected = ['#toplink', '#link1', '#link2', '#link3', '#text', '#email', '
 const frameExpected = ['#fbtn', '#flink', '#finput'];
 const TOTAL = expected.length + frameExpected.length;
 
-// ===== hints appear on the right things =====
+section('hints appear on the right things');
 await load();
 await page.keyboard.press('f');
 await settle();
@@ -299,7 +319,7 @@ await settle();
 check('"y" then a late "f" is plain click mode', /^CLICK/.test(await barText()), await barText());
 await page.keyboard.press('Escape');
 
-// ===== focusing fields =====
+section('focusing fields');
 for (const [sel, prop] of [['#text', 'value'], ['#area', 'value'], ['#editor', 'textContent']]) {
   await load();
   await page.keyboard.press('f');
@@ -320,7 +340,7 @@ for (const sel of ['#email', '#sel']) {
   check(`${sel} focused via hint`, (await evalPage(() => document.activeElement.id)) === sel.slice(1));
 }
 
-// ===== clicks =====
+section('clicks');
 for (const [sel, verify] of [
   ['#btn', () => window.clicked?.includes('btn') && window.mousedown],
   ['#check', () => document.getElementById('check').checked],
@@ -366,7 +386,7 @@ await page.keyboard.press('End');
 await page.keyboard.type('f');
 check('"f" inside input types normally', (await page.locator('#text').inputValue()) === 'abcf' && (await getHints()).length === 0);
 
-// ===== modes =====
+section('modes');
 // Shift+F
 await load();
 await page.keyboard.press('Shift+F');
@@ -522,7 +542,7 @@ await page.keyboard.type('hey');
 const frameInput = await page.frameLocator('#frm').locator('#finput').inputValue();
 check('input inside iframe focused and typed into', frameInput === 'hey', JSON.stringify(frameInput));
 
-// ===== Alt+J =====
+section('Alt+J');
 const commands = await sw.evaluate(() => chrome.commands.getAll());
 check('Alt+J bound to show-hints', commands.find((c) => c.name === 'show-hints')?.shortcut === 'Alt+J', JSON.stringify(commands));
 await load();
@@ -544,7 +564,7 @@ await evalPage(() => window.scrollBy(0, 100));
 await settle();
 check('scroll exits hint mode', (await getHints()).length === 0);
 
-// ===== remembered labels =====
+section('remembered labels');
 await load();
 await page.keyboard.press('f');
 await settle();
@@ -619,7 +639,7 @@ for (let i = 1; i <= 3; i++) {
   await typeLabel(before);
   await settle();
 }
-check('third pick announces the new single key', /own key: [A-Z]$/.test(await toastText()), await toastText());
+check('third pick announces the new single key', /own key: [A-Z] \(u to undo\)/.test(await toastText()), await toastText());
 await page.keyboard.press('f');
 await settle();
 const promotedLabel = await labelFor(frequent.sel);
@@ -684,7 +704,7 @@ console.log(`      (hints on a ${elements}-element page: ${times.join(', ')} ms;
 check('hints appear within 100 ms on a 20k-element page (median)', ms < 100, `${ms} ms`);
 await page.keyboard.press('Escape');
 
-// ===== Alt+M =====
+section('Alt+M');
 check('Alt+M bound to toggle-mute', commands.find((c) => c.name === 'toggle-mute')?.shortcut === 'Alt+M');
 const mutedAfter = () => sw.evaluate(async () => {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -695,7 +715,7 @@ const m1 = await mutedAfter();
 check('Alt+M mutes the tab (by extension, not a site setting)', m1.muted === true && m1.reason === 'extension', JSON.stringify(m1));
 check('Alt+M again unmutes it', (await mutedAfter()).muted === false);
 
-// ===== #19 toolbar button: per-site switch with badge =====
+section('#19 toolbar button: per-site switch with badge');
 await load();
 const toggleSite = () => sw.evaluate(async () => {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -720,7 +740,7 @@ await settle();
 check('toolbar toggle again: badge cleared, f works', (await badge()) === '' && (await getHints()).length > 0);
 await page.keyboard.press('Escape');
 
-// ===== #18 options page =====
+section('#18 options page');
 await page.keyboard.press('f');
 await settle();
 await page.keyboard.press('Shift+Slash');
@@ -796,7 +816,7 @@ check('options: second click forgets them', (await savedLabels()).length === 0);
 await sw.evaluate((store) => chrome.storage.local.set(store), labelStore);
 await optionsPage.close();
 
-// ===== a tab without KeyHints: the toolbar button says why nothing happened =====
+section('a tab without KeyHints: the toolbar button says why nothing happened');
 {
   const bare = await context.newPage();
   await bare.goto('chrome://version');
@@ -810,7 +830,7 @@ await optionsPage.close();
   await page.bringToFront();
 }
 
-// ===== repeat (.) and pin (!) =====
+section('repeat (.) and pin (!)');
 await load();
 await page.keyboard.press('f');
 await settle();
@@ -840,7 +860,7 @@ const pinnedAll = (await getHints()).map((h) => h.label);
 check('labels prefix-free with a pinned key', prefixFree(pinnedAll) && new Set(pinnedAll).size === pinnedAll.length);
 await page.keyboard.press('Escape');
 
-// ===== post mode (Alt+I) =====
+section('post mode (Alt+I)');
 const sendToTab = (type) => sw.evaluate(async (t) => {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   await chrome.tabs.sendMessage(tab.id, { type: t }, { frameId: 0 });
@@ -880,7 +900,7 @@ await settle();
 await Promise.all([page.waitForURL(/\/post\/\d/, { timeout: 3000 }), page.keyboard.press('o')]).catch(() => {});
 check('o opens the post', /\/post\/\d$/.test(page.url()), page.url());
 
-// ===== command palette (Alt+K) =====
+section('command palette (Alt+K)');
 const paletteOpen = async () => (await overlayNodes()).some((n) => n.kind === 'palette');
 await load();
 await sendToTab('open-palette');
@@ -958,7 +978,7 @@ await page.waitForTimeout(1300);
 check('a key press stops a pending voice run', (await evalPage(() => scrollY)) === 0 && (await paletteOpen()));
 await page.keyboard.press('Escape');
 
-// ===== built-in "site has its own keys" list (fake https://www.youtube.com) =====
+section('built-in "site has its own keys" list (fake https://www.youtube.com)');
 await page.goto('https://www.youtube.com/');
 await page.waitForTimeout(200);
 await page.mouse.click(990, 790);
@@ -980,7 +1000,7 @@ await page.waitForTimeout(200);
 check('youtube: toolbar button gives the keys back to the site', (await badge()) === 'off' &&
   !(await sw.evaluate(() => chrome.storage.local.get('settings'))).settings.enabledSites.includes('www.youtube.com'));
 
-// ===== video controls =====
+section('video controls');
 const osdText = async () => ((await overlayNodes()).find((n) => n.kind === 'osd') || {}).text || '';
 const video = (prop) => evalPage((p) => document.getElementById('v')[p], prop);
 async function openWatch(host) {
@@ -1076,7 +1096,7 @@ await page.keyboard.press('f');
 await settle();
 check('netflix: bare f is left to Netflix (fullscreen)', (await getHints()).length === 0 && (await evalPage(() => window.pageKeys || [])).includes('f'));
 
-// ===== single keys go to the first letter of the name (H for Home, N for Notifications) =====
+section('single keys go to the first letter of the name (H for Home, N for Notifications)');
 await sw.evaluate(() => chrome.storage.local.remove('labels:localhost'));
 const pickOn = async (sel) => {
   await page.keyboard.press('f');
@@ -1088,7 +1108,7 @@ const pickOn = async (sel) => {
 };
 await load('/nav');
 for (let i = 0; i < 3; i++) await pickOn('#notif');
-check('Notifications earns N', /own key: N$/.test(await toastText()), await toastText());
+check('Notifications earns N', /own key: N\b/.test(await toastText()), await toastText());
 await page.keyboard.press('f');
 await settle();
 check('...and shows N in hint mode (a letter outside the hint alphabet)', (await labelFor('#notif')) === 'n', await labelFor('#notif'));
@@ -1096,7 +1116,7 @@ await page.keyboard.press('n');
 await settle();
 check('pressing n picks Notifications (n is no longer a mode key)', page.url().endsWith('#notifications'), page.url());
 for (let i = 0; i < 3; i++) await pickOn('#home');
-check('Home earns H', /own key: H$/.test(await toastText()), await toastText());
+check('Home earns H', /own key: H\b/.test(await toastText()), await toastText());
 // Home learned T under the old rule: it moves to H on its next pick.
 await sw.evaluate(async () => {
   const { 'labels:localhost': memo } = await chrome.storage.local.get('labels:localhost');
@@ -1105,14 +1125,14 @@ await sw.evaluate(async () => {
 });
 await load('/nav');
 const before = await pickOn('#home');
-check('an old single key that is not the initial moves to it', before === 't' && /own key: H$/.test(await toastText()), `${before} ${await toastText()}`);
+check('an old single key that is not the initial moves to it', before === 't' && /own key: H\b/.test(await toastText()), `${before} ${await toastText()}`);
 await page.keyboard.press('f');
 await settle();
 const navLabels = (await getHints()).map((h) => h.label);
 check('Home on H again, labels prefix-free', (await labelFor('#home')) === 'h' && prefixFree(navLabels), navLabels.join(','));
 await page.keyboard.press('Escape');
 
-// ===== ]] [[ follow the page's own Next / Previous links =====
+section(']] [[ follow the page’s own Next / Previous links');
 await load('/pager');
 await page.keyboard.press(']');
 await page.keyboard.press(']');
@@ -1130,7 +1150,7 @@ await settle();
 check('] then another key does nothing and both keys reach the page', page.url() === `${ORIGIN}/pager` &&
   JSON.stringify(await evalPage(() => window.pageKeys)) === '["]","x"]', JSON.stringify(await evalPage(() => window.pageKeys)));
 
-// ===== ? key sheet =====
+section('? key sheet');
 await load('/nav');
 await page.keyboard.press('?');
 await settle();
@@ -1145,7 +1165,7 @@ await settle();
 check('? ? closes it and the second ? reaches the site', !(await overlayNodes()).some((n) => n.kind === 'help') &&
   JSON.stringify(await evalPage(() => window.pageKeys)) === '["?"]', JSON.stringify(await evalPage(() => window.pageKeys)));
 
-// ===== ` goes back to the tab used before =====
+section('` goes back to the tab used before');
 const activeTabUrl = () => sw.evaluate(async () => (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0].url);
 const activateUrl = (url) => sw.evaluate(async (u) => { const [t] = await chrome.tabs.query({ url: u }); await chrome.tabs.update(t.id, { active: true }); }, url);
 const second = await context.newPage();
@@ -1161,7 +1181,7 @@ await second.keyboard.press('`');
 await page.waitForTimeout(300);
 check('` again comes back', (await activeTabUrl()) === `${ORIGIN}/nav`, await activeTabUrl());
 
-// ===== palette: close duplicate / other tabs =====
+section('palette: close duplicate / other tabs');
 const tabCount = () => sw.evaluate(async () => (await chrome.tabs.query({ lastFocusedWindow: true })).length);
 const dupe = await context.newPage();
 await dupe.goto(`${ORIGIN}/nav#home`);
@@ -1181,7 +1201,7 @@ check('palette closes the duplicate tab (same address, ignoring #) and keeps the
 await runPalette('close other tabs');
 check('palette closes every other tab', (await tabCount()) === 1 && second.isClosed(), `${await tabCount()}`);
 
-// ===== post mode: counts, copy text, save as image =====
+section('post mode: counts, copy text, save as image');
 await load('/xfeed');
 await sendToTab('item-mode');
 await settle();
@@ -1199,7 +1219,7 @@ check('s saves the post as a PNG the size of the post', png.subarray(1, 4).toStr
 check('the ring is not in the saved picture (overlay back afterwards)', (await overlayNodes()).some((n) => n.kind === 'ring'));
 await page.keyboard.press('Escape');
 
-// ===== GitHub pull request files =====
+section('GitHub pull request files');
 await page.goto('https://github.com/o/r/pull/1/changes');
 await page.waitForTimeout(200);
 await page.mouse.click(990, 790);
@@ -1221,7 +1241,7 @@ check('github v marks the file at the top viewed', (await evalPage(() => documen
 await page.keyboard.press('j');
 check("github's own j still reaches the page", (await evalPage(() => window.pageKeys)).includes('j'));
 
-// ===== Jira =====
+section('Jira');
 await page.goto('https://example.atlassian.net/browse/ABC-42');
 await page.waitForTimeout(200);
 await page.mouse.click(990, 790);
@@ -1231,7 +1251,149 @@ check('jira Y copies the issue key', (await evalPage(() => navigator.clipboard.r
 await page.keyboard.press('i');
 check("jira's own i still reaches the page", (await evalPage(() => window.pageKeys)).includes('i'));
 
+section('learning from mouse clicks');
+const learnedHere = () => sw.evaluate(async () => (await chrome.storage.local.get('learned:localhost'))['learned:localhost'] || []);
+await load('/learn');
+await page.keyboard.press('f');
+await settle();
+check('a JS-only "button" gets no hint at first', !(await labelFor('#jsbtn')));
+await page.keyboard.press('Escape');
+await page.click('#plaintext');
+await page.waitForTimeout(700);
+check('clicking plain text teaches nothing', (await learnedHere()).length === 0, JSON.stringify(await learnedHere()));
+await page.click('#jsbtn');
+await page.waitForTimeout(800);
+check('a click that opened something is learned', /put a hint on that/.test(await toastText()) &&
+  (await learnedHere()).length === 1 && (await learnedHere())[0].includes('open-panel'), JSON.stringify(await learnedHere()));
+await load('/learn');
+await page.keyboard.press('f');
+await settle();
+check('...and gets a hint after a reload', !!(await labelFor('#jsbtn')));
+await page.keyboard.press('Escape');
+await runPalette('forget clicks learned here');
+check('palette forgets what clicks taught', (await learnedHere()).length === 0 && /Forgot 1 learned/.test(await toastText()), await toastText());
+
+section('learned keys: protected, undoable, listed');
+await sw.evaluate(() => chrome.storage.local.remove(['labels:localhost', 'undo:localhost']));
+await load('/nav2');
+for (let i = 0; i < 3; i++) await pickOn('#home2');
+check('Home earns H', /own key: H\b/.test(await toastText()), await toastText());
+await page.keyboard.press('u');
+await settle();
+check('u right after the toast undoes it', /Undone: Home no longer has H/.test(await toastText()), await toastText());
+await page.keyboard.press('f');
+await settle();
+check('...and Home has its old label back', (await labelFor('#home2')) !== 'h', await labelFor('#home2'));
+await page.keyboard.press('Escape');
+await pickOn('#home2'); // the 4th pick earns H again
+await load('/nav2');
+await runPalette('undo the last new single key');
+check('the palette undoes it after the page reloaded', /Undone: Home/.test(await toastText()), await toastText());
+await pickOn('#home2'); // H again
+for (let i = 0; i < 5; i++) await pickOn('#help2'); // picked more often than Home, same initial
+await page.keyboard.press('f');
+await settle();
+check('a more-used element never takes a learned single key (Help does not take H from Home)',
+  (await labelFor('#home2')) === 'h' && (await labelFor('#help2')) !== 'h', `${await labelFor('#home2')} ${await labelFor('#help2')}`);
+await page.keyboard.press('Escape');
+await page.keyboard.press('?');
+await settle();
+const legend = ((await overlayNodes()).find((n) => n.kind === 'help') || {}).text || '';
+check('? lists your keys on this site', /Your keys on localhost/.test(legend) && /f HHome/.test(legend), legend.slice(0, 300));
+await page.keyboard.press('Escape');
+
+section('keys left to a site');
+await runPalette('leave a key to this site');
+check('palette asks for the key', /LEAVE A KEY/.test(await barText()), await barText());
+await page.keyboard.press('f');
+await settle();
+check('...and confirms', /keeps f now/.test(await toastText()), await toastText());
+await evalPage(() => { window.pageKeys = []; });
+await page.keyboard.press('f');
+await settle();
+check('f now reaches the site and shows no hints', (await getHints()).length === 0 && (await evalPage(() => window.pageKeys)).includes('f'));
+await page.keyboard.press('?');
+await settle();
+const keptSheet = ((await overlayNodes()).find((n) => n.kind === 'help') || {}).text || '';
+check('other keys still work, and ? shows the kept key', /left to the site/.test(keptSheet), keptSheet.slice(0, 200));
+await page.keyboard.press('Escape');
+await runPalette('leave a key to this site');
+await page.keyboard.press('f');
+await settle();
+check('pressing it again gives it back', /is KeyHints’ again|is KeyHints' again/.test(await toastText()), await toastText());
+await page.keyboard.press('f');
+await settle();
+check('...and f shows hints again', (await getHints()).length > 0);
+await page.keyboard.press('Escape');
+
+section('tab groups');
+const tabInfo = () => sw.evaluate(async () => (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]);
+await runPalette('move tab to a new group');
+check('palette moves the tab to a new group', (await tabInfo()).groupId !== -1, JSON.stringify((await tabInfo()).groupId));
+const grouped = await context.newPage();
+await grouped.goto(`${ORIGIN}/grouped`);
+await sw.evaluate(async (url) => {
+  const [t] = await chrome.tabs.query({ url });
+  await chrome.tabGroups.update(await chrome.tabs.group({ tabIds: t.id }), { title: 'Research' });
+}, `${ORIGIN}/grouped`);
+await activateUrl(`${ORIGIN}/nav2`);
+await runPalette('collapse other tab groups');
+const otherGroup = () => sw.evaluate(async (url) => { const [t] = await chrome.tabs.query({ url }); return chrome.tabGroups.get(t.groupId); }, `${ORIGIN}/grouped`);
+check('palette collapses the other groups', (await otherGroup()).collapsed === true, JSON.stringify(await otherGroup()));
+await runPalette('next tab group');
+check('next tab group goes to (and opens) the other group', (await activeTabUrl()) === `${ORIGIN}/grouped` && (await otherGroup()).collapsed === false, await activeTabUrl());
+await activateUrl(`${ORIGIN}/nav2`);
+await runPalette('move tab to group research');
+check('palette lists the other group and moves the tab into it',
+  (await tabInfo()).groupId === (await otherGroup()).id, `${(await tabInfo()).groupId} vs ${(await otherGroup()).id}`);
+await runPalette('remove tab from its group');
+check('palette takes the tab out of its group', (await tabInfo()).groupId === -1, JSON.stringify((await tabInfo()).groupId));
+await grouped.close();
+await page.bringToFront();
+
+section('timing: page load and Back');
+await page.goto(`${ORIGIN}/slowpage`, { waitUntil: 'commit' });
+await page.waitForSelector('#early');
+await page.mouse.click(990, 790);
+const stillLoading = await evalPage(() => document.readyState !== 'complete');
+await page.keyboard.press('f');
+await settle();
+check('hints work while the page is still loading', stillLoading && !!(await labelFor('#early')), `loading=${stillLoading}`);
+await page.keyboard.press('Escape');
+await page.waitForLoadState('load');
+await load('/bf');
+await page.goto(`${ORIGIN}/pager2`);
+await page.goBack({ waitUntil: 'commit' }); // a page restored from the cache fires no load event
+await page.waitForTimeout(300);
+check('KeyHints does not block the back/forward cache', (await evalPage(() => window.restored)) === true, String(await evalPage(() => window.restored)));
+await page.mouse.click(990, 790);
+await page.keyboard.press('f');
+await settle();
+check('hints work right after Back', !!(await labelFor('#bflink')));
+await page.keyboard.press('Escape');
+
 check('no uncaught errors from the extension during the whole run', pageErrors.length === 0, pageErrors.join(' | '));
+
+// COMPATIBILITY.md: what this run proved, by area, for the README to link to.
+const ua = await sw.evaluate(() => navigator.userAgent);
+const areas = [...new Set(results.map((r) => r.area))];
+writeFileSync(join(here, '..', 'COMPATIBILITY.md'), [
+  '# Compatibility',
+  '',
+  `Generated by \`test/run.mjs\` on ${new Date().toISOString().slice(0, 10)} in headless Chromium ${(/Chrome\/([\d.]+)/.exec(ua) || [])[1]}, against local copies of the`,
+  'pages each area names (fake YouTube, Netflix, GitHub, Jira and X-style pages included). Run it yourself: `cd test && node run.mjs`.',
+  '',
+  `**${results.filter((r) => r.ok).length} of ${results.length} checks passed.**`,
+  '',
+  '| Area | Passed | |',
+  '|---|---|---|',
+  ...areas.map((a) => {
+    const rs = results.filter((r) => r.area === a);
+    const ok = rs.filter((r) => r.ok).length;
+    return `| ${a} | ${ok} / ${rs.length} | ${ok === rs.length ? '✅' : '❌'} |`;
+  }),
+  '',
+].join('\n'));
 
 await context.close();
 server.close();

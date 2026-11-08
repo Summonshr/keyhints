@@ -35,8 +35,9 @@ const MODE_BY_KEY = Object.fromEntries(Object.entries(MODES).filter(([, m]) => m
 // items:     { current, host, ring, bar }     current: the highlighted post / card
 // palette:   { input, results, selected, host, list, footer, returnFocus, autoRun, seq }
 // help:      { host }                         the key sheet (help.js)
+// passkey:   { host }                         waiting for the key to leave to this site (or take back)
 const TRANSITIONS = {
-  idle: ['prefix', 'starting', 'selecting', 'items', 'palette', 'help'],
+  idle: ['prefix', 'starting', 'selecting', 'items', 'palette', 'help', 'passkey'],
   prefix: ['idle', 'starting'],
   starting: ['idle', 'starting', 'hinting'],
   hinting: ['idle', 'starting'],
@@ -44,6 +45,7 @@ const TRANSITIONS = {
   items: ['idle', 'starting'],
   palette: ['idle', 'starting', 'items'],
   help: ['idle'],
+  passkey: ['idle'],
 };
 const IDLE = { phase: 'idle' };
 let state = IDLE;
@@ -67,7 +69,7 @@ function setState(next) {
   }
   if (prev.phase === 'items') leaveItems(prev); // items.js
   if (prev.phase === 'palette') leavePalette(prev); // palette.js
-  if (prev.phase === 'help') prev.host.remove();
+  if (prev.phase === 'help' || prev.phase === 'passkey') prev.host.remove();
   if (next.phase === 'hinting') {
     addEventListener('scroll', cancelHints, { capture: true, passive: true });
     addEventListener('resize', cancelHints);
@@ -277,7 +279,10 @@ function pick(hint, shift) {
   if (shift && mode === 'click' && hint.isLink) mode = 'newtab'; // Shift on the last letter
   const promoted = hint.sig ? remember(hint.sig, hint.label, hint.text) : null;
   if (hint.sig) lastPick = { sig: hint.sig, mode: mode === 'multi' ? 'newtab' : mode };
-  if (promoted) toast(`${hint.text || 'This'} now has its own key: ${promoted.toUpperCase()}`);
+  if (promoted) {
+    toast(`${hint.text || 'This'} now has its own key: ${promoted.toUpperCase()} (u to undo)`);
+    undoUntil = Date.now() + 5000;
+  }
 
   if (mode === 'multi') { // stay in hint mode; each pick opens another background tab
     openTab(hint.href);
@@ -605,12 +610,17 @@ addEventListener('keydown', (e) => {
     }
     case 'idle': return idleKey(e);
     case 'help': return helpKey(e); // help.js
+    case 'passkey': return passKeyKey(e);
     case 'items': return itemKey(e); // items.js
     case 'palette': return paletteKey(e); // palette.js
   }
 }, true);
 
+let undoUntil = 0; // "u" undoes a new single key for a few seconds after its toast
+
 function idleKey(e) {
+  // Keys this site keeps for itself never reach KeyHints here (palette: "Leave a key to this site").
+  if (!e.ctrlKey && !e.altKey && !e.metaKey && sitePassKeys().includes(e.key)) return;
   if (videoKey(e)) return; // video.js: YouTube / Netflix controls (work even where bare f is the site's)
   // Ctrl+Left / Ctrl+Right: previous / next tab, like Ctrl+Shift+Tab / Ctrl+Tab. In a text field they keep moving by word.
   if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isTyping(e)) {
@@ -626,8 +636,37 @@ function idleKey(e) {
   else if (e.key === ';') { consume(); start('focus'); }
   else if (e.key === '`') { consume(); lastTab(); }
   else if (e.key === '?') { consume(); startHelp(); } // help.js
+  else if (e.key === 'u' && Date.now() < undoUntil) { consume(); undoNewKey(); }
   // Not consumed: sites may use plain "y", "]" or "[".
   else if (e.key === 'y' || e.key === ']' || e.key === '[') setState({ phase: 'prefix', key: e.key, expiresAt: Date.now() + 1000 });
+}
+
+async function undoNewKey() {
+  undoUntil = 0;
+  const undone = await undoPromotion(); // store.js
+  toast(undone ? `Undone: ${undone.text || 'that element'} no longer has ${undone.key.toUpperCase()}` : 'No new single key to undo here');
+}
+
+// "Leave a key to this site": the next key pressed is given to the site, or taken back.
+function startPassKey() {
+  const { host, root } = createHost();
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  root.appendChild(bar);
+  const kept = sitePassKeys();
+  renderBar(bar, 'LEAVE A KEY', [[`press the key ${location.hostname} should keep${kept.length ? ` (keeps: ${kept.join(' ')}; press one again to take it back)` : ''}`], ['Esc', 'cancel']]);
+  setState({ phase: 'passkey', host });
+}
+
+async function passKeyKey(e) {
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (e.key === 'Escape') return setState(IDLE);
+  if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return; // a single key, no modifiers
+  setState(IDLE);
+  const keeps = await togglePassKey(e.key);
+  toast(keeps ? `${location.hostname} keeps ${e.key} now; every other KeyHints key still works here`
+    : `${e.key} is KeyHints' again on ${location.hostname}`);
 }
 
 // Back to the tab used before this one (the background script keeps the order per window).

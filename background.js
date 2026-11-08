@@ -41,19 +41,56 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 const SEARCH_PERMISSIONS = { permissions: ['bookmarks', 'history'] };
 
 // Palette sources: open tabs, plus bookmarks and history matching the query when allowed.
-async function paletteQuery(q) {
+async function paletteQuery(q, tab) {
   const searchAllowed = await chrome.permissions.contains(SEARCH_PERMISSIONS);
-  const [tabs, bookmarks, history] = await Promise.all([
+  const [tabs, bookmarks, history, groups] = await Promise.all([
     chrome.tabs.query({}),
     q && searchAllowed ? chrome.bookmarks.search(q) : [],
     q && searchAllowed ? chrome.history.search({ text: q, maxResults: 15, startTime: 0 }) : [],
+    chrome.tabGroups.query({ windowId: tab.windowId }),
   ]);
   return {
     searchAllowed,
+    // Groups in this window other than the tab's own, for "Move tab to group: …".
+    groups: groups.filter((g) => g.id !== tab.groupId).map((g) => ({ id: g.id, title: g.title || `${g.color} group` })),
     tabs: tabs.map((t) => ({ id: t.id, windowId: t.windowId, title: t.title, url: t.url })),
     bookmarks: bookmarks.filter((b) => b.url).slice(0, 15).map((b) => ({ title: b.title, url: b.url })),
     history: history.map((h) => ({ title: h.title, url: h.url })),
   };
+}
+
+// Tab groups, from the palette. `op`: new (a group of its own), join (groupId), leave,
+// collapse-others, next (first tab of the next group, opened up if collapsed).
+async function tabGroup(tab, op, groupId) {
+  if (op === 'new') {
+    await chrome.tabs.group({ tabIds: tab.id });
+    return { ok: true, message: 'Moved the tab to a new group' };
+  }
+  if (op === 'join') {
+    await chrome.tabs.group({ tabIds: tab.id, groupId });
+    return { ok: true, message: 'Moved the tab to the group' };
+  }
+  if (op === 'leave') {
+    if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return { ok: false, message: 'This tab is not in a group' };
+    await chrome.tabs.ungroup(tab.id);
+    return { ok: true, message: 'Took the tab out of its group' };
+  }
+  const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
+  if (op === 'collapse-others') {
+    const open = groups.filter((g) => g.id !== tab.groupId && !g.collapsed);
+    await Promise.all(open.map((g) => chrome.tabGroups.update(g.id, { collapsed: true })));
+    return { ok: true, message: open.length ? `Collapsed ${open.length} group${open.length === 1 ? '' : 's'}` : 'No other open groups' };
+  }
+  if (op === 'next') {
+    const tabs = await chrome.tabs.query({ windowId: tab.windowId }); // in tab-strip order
+    const firstTabs = groups.map((g) => tabs.find((t) => t.groupId === g.id)).filter(Boolean).sort((a, b) => a.index - b.index);
+    if (!firstTabs.length) return { ok: false, message: 'No tab groups in this window' };
+    const next = firstTabs.find((t) => t.index > tab.index && t.groupId !== tab.groupId) || firstTabs[0];
+    await chrome.tabGroups.update(next.groupId, { collapsed: false });
+    await chrome.tabs.update(next.id, { active: true });
+    return { ok: true, message: '' };
+  }
+  throw new Error(`KeyHints: unknown tab-group op "${op}"`);
 }
 
 async function switchTabBy(tab, step) {
@@ -127,7 +164,8 @@ chrome.action.setBadgeBackgroundColor({ color: '#6b7280' });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const answer = {
-    'palette-query': () => paletteQuery(msg.q),
+    'palette-query': () => paletteQuery(msg.q, sender.tab),
+    'tab-group': () => tabGroup(sender.tab, msg.op, msg.groupId),
     'last-tab': () => lastTab(sender.tab),
     'close-tabs': () => closeTabs(sender.tab, msg.which),
     capture: () => capture(sender.tab),

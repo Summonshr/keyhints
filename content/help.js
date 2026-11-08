@@ -13,6 +13,10 @@ function helpSections() {
       [']] [[', 'next / previous page'], ['`', 'the tab you were on before'], ['?', 'this sheet (again: the site’s own)'],
     ]],
   ];
+  // What this site has learned: the keys to remember here, and the keys left to the site.
+  const mine = learnedKeys().map(({ key, name, pinned }) => [`f ${key.toUpperCase()}`, `${name}${pinned ? ' (pinned)' : ''}`]);
+  const kept = sitePassKeys().map((k) => [k, 'left to the site (palette: “leave a key”)']);
+  if (mine.length || kept.length) sections.push([`Your keys on ${location.hostname}`, [...mine, ...kept]]);
   const site = siteKeysHelp(); // sites.js
   if (site.length && !off) sections.push([SITE === 'github' ? 'GitHub pull request' : 'Jira', site]);
   const video = videoKeysHelp(); // video.js

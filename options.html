@@ -54,6 +54,35 @@
   <div id="memory"></div>
   <button id="forget-all">Forget all saved labels</button>
 
+  <h2>Your keys so far</h2>
+  <p id="stats">No picks yet.</p>
+  <button id="stats-image">Save as image</button>
+  <p class="hint">Counted from your saved labels, in this browser only. Nothing is sent anywhere.</p>
+
+  <h2>Share and back up</h2>
+  <p class="hint">"Copy keymap" (under each site above) copies that site's labels as text a friend can paste here.
+    A backup file holds every site's labels and your settings, for a new computer.</p>
+  <button id="export">Download backup</button>
+  <input type="file" id="import-file" accept=".json,application/json" hidden><button id="import-pick">Restore from file…</button>
+  <p><label for="import-text">Paste a keymap or backup:</label><br>
+    <textarea id="import-text" rows="3" cols="60" spellcheck="false"></textarea><br>
+    <button id="import">Add these labels</button></p>
+  <p class="hint">Imported labels are added to yours; where two clash, the pinned one, then the most recent, wins.</p>
+
+  <h2>Palette search</h2>
+  <p class="hint">The palette (<kbd>Alt+K</kbd>) always searches open tabs and the page. It can search bookmarks and
+    history too, if you allow it. Nothing leaves your browser either way.</p>
+  <p><span id="search-state"></span> <button id="search-toggle"></button></p>
+
+  <h2>Show keys</h2>
+  <label><input type="checkbox" id="keycast"> Show the keys I press in the bottom-left corner</label>
+  <p class="hint">For screen sharing and recordings, so others can follow. What you type into fields is never shown.</p>
+
+  <h2>Tips</h2>
+  <label><input type="checkbox" id="tips"> Show one-time tips</label>
+  <button id="tips-reset">Show them again</button>
+  <p class="hint">A short note the first time something is useful (a video plays, you open X…). Each shows once.</p>
+
   <h2>Other keys</h2>
   <table class="keys">
     <tr><td><kbd>f</kbd></td><td>Show hints (click / focus), when not typing</td></tr>

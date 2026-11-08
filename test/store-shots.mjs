@@ -2,7 +2,7 @@
 //   1-hints.png  2-learns.png  3-posts.png  4-video.png  5-welcome.png  demo.webm
 // Ports 8785 / 8786, so it can run next to the other test scripts.
 import { chromium } from 'playwright-core';
-import { readFileSync, mkdtempSync, mkdirSync, renameSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
@@ -38,7 +38,7 @@ const docs = `${style}<header><b>Acme Docs</b><a href="/g">Guides</a><a href="/r
   <a href="/issue">open an issue</a>.</p></main></div>`;
 
 const social = `${style}<div class="wrap" style="grid-template-columns:230px 600px"><aside style="font-size:19px">
-  ${['Home', 'Explore', 'Notifications', 'Messages', 'Bookmarks', 'Profile'].map((t) => `<a href="#${t}" id="${t}">${t}</a>`).join('')}
+  ${['Home', 'Explore', 'Notifications', 'Messages', 'Bookmarks', 'Profile'].map((t) => `<a href="#go-${t}" id="${t}">${t}</a>`).join('')}
   </aside><main>${Array.from({ length: 4 }, (_, i) => `<article style="border:1px solid #d0d7de;border-radius:10px;margin:0 0 14px;padding:14px;height:170px">
     <b>Dev ${i + 1}</b> <a href="/status/${i}"><time>${i + 1}h</time></a>
     <div data-testid="tweetText">${['Shipped the new release today 🎉', 'Hot take: keyboards are underrated.', 'Reading list for the weekend, thread ↓', 'Our team cut review time in half.'][i]}</div>
@@ -84,6 +84,12 @@ const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir()
 const sw = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
 const extId = new URL(sw.url()).host;
 await sw.evaluate(() => chrome.storage.local.set({ keycast: true, tipsOff: true })); // keys visible in the demo
+// The install opens the welcome page in its own tab; close it so this tab is the active one.
+for (let i = 0; i < 30; i++) {
+  const welcome = context.pages().find((p) => p.url().endsWith('/welcome.html'));
+  if (welcome) { await welcome.close(); break; }
+  await new Promise((r) => setTimeout(r, 100));
+}
 const page = context.pages()[0] || await context.newPage();
 
 const wait = (ms) => page.waitForTimeout(ms);
@@ -91,6 +97,7 @@ const press = async (keys, gap = 260) => { for (const k of keys) { await page.ke
 const caption = (text) => page.evaluate((t) => {
   document.querySelector('.caption')?.remove();
   const div = Object.assign(document.createElement('div'), { className: 'caption', textContent: t });
+  div.style.cssText = 'position:fixed;left:0;right:0;top:0;padding:18px;text-align:center;font:600 26px system-ui;background:#111827;color:#fff';
   document.body.append(div);
 }, text);
 const shot = (name) => page.screenshot({ path: join(out, name) });
@@ -135,7 +142,7 @@ await wait(1200);
 
 // 3. Post mode.
 await caption('Go through your feed with j / k');
-await page.evaluate(() => chrome.runtime.sendMessage({ type: 'to-top', payload: { type: 'item-mode' } }));
+await sw.evaluate(async () => toPage((await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0], { type: 'item-mode' })); // Alt+I
 await wait(500);
 await press(['j'], 500);
 await shot('3-posts.png');
@@ -156,13 +163,14 @@ await wait(800);
 // 5. Welcome page.
 await page.goto(`chrome-extension://${extId}/welcome.html`);
 await wait(500);
-await page.evaluate(() => document.querySelector('ul').scrollIntoView({ block: 'center' }));
+await page.evaluate(() => { document.body.style.paddingTop = '70px'; });
+await caption('No account. No tracking. Nothing leaves your browser.');
 await wait(300);
 await shot('5-welcome.png');
 
 const video = page.video();
 await context.close();
-renameSync(await video.path(), join(out, 'demo.webm'));
+copyFileSync(await video.path(), join(out, "demo.webm"));
 rmSync(videoDir, { recursive: true, force: true });
 server.close();
 httpsServer.close();
