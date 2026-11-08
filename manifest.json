@@ -1,0 +1,98 @@
+{
+  "manifest_version": 3,
+  "name": "KeyHints",
+  "version": "0.6.0",
+  "description": "Keyboard hints for clicking links and focusing inputs without a mouse.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "tabGroups"
+  ],
+  "optional_permissions": [
+    "bookmarks",
+    "history"
+  ],
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "KeyHints: click to turn single-key shortcuts off here",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "show-hints": {
+      "suggested_key": {
+        "default": "Alt+J"
+      },
+      "description": "Show hints (click links, focus inputs)"
+    },
+    "toggle-mute": {
+      "suggested_key": {
+        "default": "Alt+M"
+      },
+      "description": "Mute / unmute the current tab"
+    },
+    "open-palette": {
+      "suggested_key": {
+        "default": "Alt+K"
+      },
+      "description": "Command palette (type or dictate)"
+    },
+    "post-mode": {
+      "suggested_key": {
+        "default": "Alt+I"
+      },
+      "description": "Post mode: j/k between posts, single-key actions"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/store.js",
+        "content/ui.js",
+        "content/targets.js",
+        "content/learn.js",
+        "content/keycast.js",
+        "content/main.js",
+        "content/items.js",
+        "content/video.js",
+        "content/tips.js",
+        "content/sites.js",
+        "content/help.js",
+        "content/palette.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true
+    },
+    {
+      "matches": [
+        "*://*.netflix.com/*"
+      ],
+      "js": [
+        "content/netflix-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}
