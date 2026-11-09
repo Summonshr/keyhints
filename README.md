@@ -4,15 +4,19 @@ Click, focus, copy, hover, scroll and select on any page without a mouse.
 
 ## Install (Helium / any Chromium)
 
-1. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick this folder.
-2. Check `chrome://extensions/shortcuts`: **Show hints** = `Alt+J`, **Mute / unmute this tab, and mute all other tabs** = `Alt+M`,
+1. `npm install`, then `npm run build`.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick `.output/chrome-mv3`.
+3. Check `chrome://extensions/shortcuts`: **Show hints** = `Alt+J`, **Mute / unmute this tab, and mute all other tabs** = `Alt+M`,
    **Command palette** = `Alt+K`, **Post mode** = `Alt+I`.
-3. After pulling changes: click the reload icon on KeyHints, then reload open tabs.
+4. After pulling changes: `npm run build`, then click the reload icon on KeyHints. Open tabs get the
+   new version by themselves (no need to reload them); the old copy in each tab goes quiet.
 
-A first install opens a practice page (`welcome.html`): one pick, the learning toast, the palette,
-and the two opt-ins below. Nothing else ever opens by itself.
+A first install opens a practice page (`welcome.html`): a few picks, labels taken from button names,
+the palette, and the two opt-ins below. Nothing else ever opens by itself.
 
-No account, no analytics: KeyHints makes no network requests. Everything is in `chrome.storage.local`.
+No account, no analytics: KeyHints makes no network requests. Everything is in `chrome.storage.local`
+(settings and pinned keys also in `chrome.storage.sync`, below). Saved data carries a version
+number; data from another version of KeyHints is wiped when it loads (this is a development build).
 
 ## Keys
 
@@ -68,8 +72,8 @@ next/previous page, mute tab, like/reply/mute/copy/save the post in the middle, 
 tab groups (move the tab to a new group or to a group by name, take it out, collapse the other
 groups, next group), undo the last new single key, leave a key to this site, forget clicks learned
 here, repeat, settings, and the GitHub / Jira keys below on those pages…),
-everything clickable on screen, open tabs, tabs closed this session (`closed` results; reopened
-with their address, not their back/forward history: `Ctrl+Shift+T` does that), and (once allowed in settings: they're optional
+everything clickable on screen, open tabs, recently closed tabs (`closed` results, reopened with
+their back/forward history, like `Ctrl+Shift+T`), and (once allowed in settings: they're optional
 permissions, asked for on a click, never at install) bookmarks and history. Until then a
 "Search bookmarks and history too" entry leads to settings. `Shift+Enter` opens a page in
 a background tab. Before you type, commands for the page lead the list (video controls while a video is on
@@ -128,7 +132,9 @@ share and back up, palette search, Show keys, tips.
 
 **Sync**: settings and pinned keys go to `chrome.storage.sync`, so they follow you to your other
 computers when the browser's sync is on (without it they stay on this computer). Learned labels stay
-on each computer. When the browser starts, settings already in sync win; pins are merged.
+on each computer. Settings: the most recent change wins. Pins: per element, the most recent pin or
+unpin wins, so pinning on one computer and unpinning something else on another both survive.
+Forgetting a site's labels in settings unpins its keys on every computer.
 
 **Show keys** (settings, or the welcome page): a badge in the bottom-left corner shows the keys
 you press, and "Show hints" / "Palette" / "Post mode" for the browser shortcuts, for screen shares
@@ -203,25 +209,41 @@ If saved labels would force three-key labels, the least used (then least recent)
 - Copying needs a secure page (`https://` or `localhost`).
 - Hints close when the page scrolls or resizes.
 
-## Tests
+## Development
 
 ```sh
-cd test
-npm install          # once
-node run.mjs         # headless end-to-end suite (fixture pages, port 8765)
-node growth.mjs      # welcome page, Show keys, tips, settings share/backup (ports 8775/8776)
-node store-shots.mjs # Web Store screenshots 1280×800 and demo.webm in ../store (ports 8785/8786)
-node real-sites.mjs  # smoke test on Wikipedia, GitHub, Hacker News, YouTube, MDN (needs internet)
-node shots.mjs       # screenshots of hint theming, /tmp/keyhints-*.png
+npm install
+npm run build         # the extension, in .output/chrome-mv3
+npm run typecheck     # TypeScript, extension and tests
+npm test              # unit tests: labels, identity, memory, ranking, sync (Vitest, milliseconds)
+npm run e2e           # build + end-to-end suite in headless Chromium (Playwright, ~2.5 min)
+npm run real-sites    # smoke test on Wikipedia, GitHub, Hacker News, YouTube, MDN (needs internet)
+npm run check         # typecheck + unit + end-to-end
 ```
 
-`run.mjs` also writes [`COMPATIBILITY.md`](COMPATIBILITY.md): checks passed per area, with the
-browser version and date. It runs with the back/forward cache on (Playwright turns it off by
-default) to prove KeyHints doesn't stop pages being restored instantly on Back.
+Layout (`src/`):
 
-`run.mjs` loads a scratch copy of the extension with bookmarks / history granted (the grant
-prompt can't be clicked headless); `growth.mjs` runs the real manifest, where they aren't.
-Listing copy and permission wording: `STORE.md`. Growth plan: `GROWTH.md`.
+- `core/`: pure logic, no DOM and no `chrome.*`, unit-tested: labels (generated, from names,
+  prefix-free), element identity, saved-label memory (remember, promote, pin, undo, fit), palette
+  ranking, the key space and modes, sync merging.
+- `dom/`: what gets a hint (one rule list), the overlay, mouse events, claiming keys from press to
+  release (also when the release lands on another tab).
+- `content/`: the page's one state machine (`state.ts`; each phase's owner registers its cleanup)
+  and the features: hints, frames, text selection, palette, post mode, video, sites, help, Show
+  keys, tips, learning from clicks.
+- `background/`: the only writer of storage (changes queued per key), tabs, sync.
+- `shared/`: settings, storage keys, and the typed messages between pages and the background.
+- `entrypoints/`: what WXT builds: background, content scripts, settings and welcome pages.
+
+The end-to-end suite (`tests/e2e`) serves fixture pages on port 8765 and fake https YouTube,
+Netflix, Google, GitHub and Jira on 8766 (hosts mapped to this machine). Every test starts with
+fresh storage and one tab, and fails if the extension throws. It uses `/usr/bin/chromium` when
+present, else Playwright's own Chromium (`npx playwright install chromium`); `CHROMIUM_PATH`
+overrides. The main suite grants bookmarks / history (the grant prompt can't be clicked headless);
+`growth.spec.ts` runs the real manifest, where they aren't. Not covered automatically: the `!`
+badge on pages KeyHints can't run in (needs a real toolbar click), and a real update (headless
+Chromium doesn't reload a command-line extension; re-injection and the old copy going quiet are
+tested separately). Listing copy and permission wording: `STORE.md`. Growth plan: `GROWTH.md`.
 
 ### Manual checklist for X (needs your login, so not automated)
 

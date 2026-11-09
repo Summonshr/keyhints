@@ -50,14 +50,16 @@ Paste into the "Permission justification" fields, and keep the same text in the 
 | Read and change data on all websites | Labels have to be drawn on whatever page you're on, the moment you press the key. Nothing is read or sent anywhere. |
 | tabs | The palette lists your open tabs, and ` switches back to the tab you used last. |
 | tabGroups | Palette commands for tab groups. |
-| storage | Your settings and the labels you've learned, stored only in this browser. |
+| storage | Your settings and the labels you've learned, stored in this browser; settings and pinned keys also in your browser's own sync, if you use it. |
+| sessions | The palette's "Reopen closed tab" brings a tab back with its history, from the browser's own list of closed tabs. |
+| scripting | After KeyHints updates, tabs that were already open get the new version without being reloaded. |
 | bookmarks, history (optional) | Only if you turn it on: lets the palette search them. Asked for when you choose it, never on install. |
 
 Single purpose: "Keyboard control of web pages: click, open, copy and scroll by typing short labels instead of using the mouse."
 
 ## Screenshots (1280×800)
 
-Made by `test/store-shots.mjs` (writes `store/*.png`). In this order:
+In `store/` (made with the old test scripts; regenerate by hand after visual changes). In this order:
 
 1. **Every link gets a key.** Hints over a familiar-looking page.
 2. **It learns your favourites.** The "Home now has its own key: H" note.
@@ -67,7 +69,7 @@ Made by `test/store-shots.mjs` (writes `store/*.png`). In this order:
 
 ## Demo video (30–45 s, no voice-over)
 
-`test/store-shots.mjs` also records `store/demo.webm` with Show keys on, so viewers see every key. Upload it to YouTube and link it in the listing.
+`store/demo.webm` was recorded with Show keys on, so viewers see every key (before v0.1 changed labels: re-record before uploading). Upload it to YouTube and link it in the listing.
 
 ## Rules for this listing
 

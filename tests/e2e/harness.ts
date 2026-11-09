@@ -3,7 +3,7 @@
 // One browser per worker; every test starts with fresh storage and a single tab.
 
 import { test as base, expect, chromium, type BrowserContext, type CDPSession, type Page, type Worker } from '@playwright/test';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { execFileSync } from 'node:child_process';
@@ -12,6 +12,13 @@ import { join } from 'node:path';
 import * as P from './pages';
 
 export const ORIGIN = 'http://localhost:8765';
+
+// The system Chromium where there is one (/usr/bin/chromium), else Playwright's own (CI:
+// `npx playwright install chromium`). CHROMIUM_PATH overrides both.
+export const browserOptions = (): { executablePath?: string; channel?: string } => {
+  const path = process.env.CHROMIUM_PATH || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : '');
+  return path ? { executablePath: path } : { channel: 'chromium' };
+};
 export const PREFIX_FREE = (ls: string[]) => ls.every((a) => ls.every((b) => a === b || !b.startsWith(a)));
 
 // Every hint on the fixture page ('/'), and inside its iframe.
@@ -123,7 +130,7 @@ export class KH {
           hidden: cls.includes('hidden'), used: cls.includes('used'), inFrame, nodeId: n.nodeId });
       }
       if (cls.includes('bar') || cls.includes('toast')) found.push({ kind: cls.includes('bar') ? 'bar' : 'toast', text: text(n) });
-      if (['ring', 'palette', 'osd', 'help', 'chip', 'tip'].some((c) => cls.includes(c))) found.push({ kind: cls[0], text: text(n) });
+      if (['ring', 'palette', 'osd', 'help', 'chip', 'tip', 'keycast'].some((c) => cls.includes(c))) found.push({ kind: cls[0], text: text(n) });
       if (cls.includes('result')) found.push({ kind: 'result', text: text(n), on: cls.includes('on') });
       if (n.contentDocument) walk(n.contentDocument, true);
       for (const c of [...(n.children || []), ...(n.shadowRoots || [])]) walk(c, inFrame);
@@ -169,6 +176,16 @@ export class KH {
     return label!;
   }
 
+  // Opens the settings page in its own tab. (The browser reuses the current tab for it when that
+  // tab is blank, so the test's tab is put on a real page first.)
+  async openOptions(): Promise<Page> {
+    if (this.page.url() === 'about:blank') await this.load();
+    const [options] = await Promise.all([this.context.waitForEvent('page'), this.sw.evaluate(() => chrome.runtime.openOptionsPage())]);
+    await options.waitForLoadState();
+    await options.waitForTimeout(200);
+    return options;
+  }
+
   // What a browser shortcut or the toolbar button sends to the active tab.
   sendToTab = (type: string) => this.sw.evaluate(async (t) => {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -203,11 +220,7 @@ export class KH {
     .flatMap(([, v]) => Object.values(v as Record<string, { label: string }>).map((e) => e.label));
   setLocal = (items: Record<string, unknown>) => this.sw.evaluate((i) => chrome.storage.local.set(i), items);
   settings = async () => (await this.local('settings')).settings || {};
-  setSettings = (patch: Record<string, unknown>) => this.sw.evaluate(async (p) => {
-    const { settings = {} } = await chrome.storage.local.get('settings');
-    await chrome.storage.local.set({ settings: { ...settings, ...p } });
-  }, patch);
-  synced = (key: string) => this.sw.evaluate(async (k) => (await chrome.storage.sync.get(k))[k], key);
+  synced = (key: string) => this.sw.evaluate(async (k) => (await chrome.storage.sync.get(k))[k], key) as Promise<any>;
   commands = () => this.sw.evaluate(() => chrome.commands.getAll());
 }
 
@@ -218,7 +231,7 @@ export const test = base.extend<{ kh: KH }, { world: World }>({
     const servers = startServers();
     const ext = extensionCopy();
     const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'keyhints-')), {
-      executablePath: '/usr/bin/chromium',
+      ...browserOptions(),
       headless: true,
       ignoreDefaultArgs: ['--disable-back-forward-cache'], // Playwright turns the cache off; users have it on
       args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`,

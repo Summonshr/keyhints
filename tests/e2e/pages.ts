@@ -41,7 +41,7 @@ export const names = `<body style="font:14px sans-serif;margin:10px">
   <a id="score" href="#score">Score card</a> <a id="search" href="#search">Search</a> <a id="explore" href="#explore">Explore</a>
   <a id="row" href="/watch?v=1" style="display:block;width:300px;padding:10px;background:#eee">Row title </a>
   <div style="opacity:0"><button id="ghost">Action menu</button></div>
-  <script>export const t = document.createElement('a'); t.id = 'thumb'; t.href = '/watch?v=1'; t.textContent = 'thumbnail';
+  <script>const t = document.createElement('a'); t.id = 'thumb'; t.href = '/watch?v=1'; t.textContent = 'thumbnail';
     document.getElementById('row').appendChild(t);</script></body>`;
 // /xfeed: X-like posts: counts on the action bar's label, the post's words in tweetText.
 export const xfeed = '<body style="font:14px sans-serif;margin:20px">' + Array.from({ length: 4 }, (_, i) => `
@@ -55,14 +55,14 @@ export const githubPull = `<!doctype html><body style="margin:0;font:14px sans-s
   <header style="position:sticky;top:0;height:60px;background:#eee">GitHub</header>
   ${['a.php', 'b.php', 'c.php'].map((f, i) => `<div role="region" id="diff-${i}" style="height:900px;border-top:2px solid #999">
     <div data-file-path="${f}">${f} <button aria-pressed="false" aria-label="Not Viewed"
-      onclick="export const v = this.getAttribute('aria-pressed') !== 'true'; this.setAttribute('aria-pressed', v); this.setAttribute('aria-label', v ? 'Viewed' : 'Not Viewed')">Viewed</button></div>
+      onclick="const v = this.getAttribute('aria-pressed') !== 'true'; this.setAttribute('aria-pressed', v); this.setAttribute('aria-label', v ? 'Viewed' : 'Not Viewed')">Viewed</button></div>
     ${i === 1 ? '<div data-testid="review-thread" style="margin-top:400px">Looks wrong</div>' : ''}</div>`).join('')}
   <div style="height:1200px"></div>${logKeys}</body>`;
 // /learn: a JS-only "button" (no role, no pointer cursor) that opens something, next to plain text.
 export const learnPage = `<meta charset="utf-8"><body style="font:14px sans-serif;margin:20px">
   <div data-testid="open-panel" id="jsbtn" style="width:140px;height:30px;background:#ddd">Open panel</div>
   <p id="plaintext">Plain words, clicking them does nothing.</p><div id="panel"></div>
-  <script>jsbtn.addEventListener('click', () => { export const d = document.createElement('div'); d.textContent = 'panel'; panel.append(d); });</script></body>`;
+  <script>jsbtn.addEventListener('click', () => { const d = document.createElement('div'); d.textContent = 'panel'; panel.append(d); });</script></body>`;
 // /nav2: Home and Help share the initial H.
 export const nav2 = `<body style="font:14px sans-serif;margin:10px"><nav><a id="home2" href="#home">Home</a> <a id="help2" href="#help">Help</a></nav>
   <div style="display:grid;grid-template-columns:repeat(10,80px)">${Array.from({ length: 40 }, (_, i) => `<a href="#g${i}">Item ${i}</a>`).join('')}</div>
@@ -104,11 +104,11 @@ export const netflixWatch = watchPage(`
   <button data-uia="next-episode-seamless-button" style="display:none" onclick="window.nexted = true">Next Episode</button>
   <script>
     // Stub of Netflix's player API; records seeks. Any write to video.currentTime is counted (M7375).
-    export const v = document.getElementById('v');
+    const v = document.getElementById('v');
     window.seeks = [];
     window.currentTimeWrites = 0;
     Object.defineProperty(v, 'currentTime', { get: () => HTMLMediaElement.prototype.__lookupGetter__('currentTime').call(v), set: () => { window.currentTimeWrites++; } });
-    export const player = { getCurrentTime: () => v.currentTime * 1000, getDuration: () => v.duration * 1000, seek: (ms) => window.seeks.push(ms) };
+    const player = { getCurrentTime: () => v.currentTime * 1000, getDuration: () => v.duration * 1000, seek: (ms) => window.seeks.push(ms) };
     window.netflix = { appContext: { state: { playerApp: { getAPI: () => ({ videoPlayer: {
       getAllPlayerSessionIds: () => ['watch-123'], getVideoPlayerBySessionId: () => player } }) } } } };
   </script>`);

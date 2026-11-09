@@ -131,7 +131,8 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(async ({ reason }) => {
     await store.checkSchema();
     await reconcileSync();
-    await injectIntoOpenTabs();
+    // Only when KeyHints itself is new (not when the browser updated: its tabs still have it).
+    if (reason === 'install' || reason === 'update') await injectIntoOpenTabs();
     // The practice page, on first install only (not on updates or browser restarts).
     if (reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('/welcome.html') });
   });

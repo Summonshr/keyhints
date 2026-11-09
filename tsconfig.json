@@ -5,7 +5,14 @@
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["chrome"]
+    "types": [
+      "chrome"
+    ]
   },
-  "include": [".wxt/wxt.d.ts", "src", "tests", "*.ts"]
+  "include": [
+    ".wxt/wxt.d.ts",
+    "src",
+    "wxt.config.ts",
+    "vitest.config.ts"
+  ]
 }
