@@ -1,0 +1,64 @@
+// The content script: runs in every frame of every page (and on the welcome page, which loads it).
+
+import type { ModeId } from '../core/modes';
+import type { PageMessage } from '../shared/messages';
+import { installKeyClaims } from '../dom/keys';
+import { handleFrameMessage, IS_TOP } from './frames';
+import { start } from './hints';
+import { startItems } from './items';
+import { startPalette } from './palette';
+import { installLearning } from './learn';
+import { installTips } from './tips';
+import { keycastCommand } from './keycast';
+import { reportSiteState, toggleSite } from './site-switch';
+import { onKeyDown } from './keyboard';
+import { alive, setLifecycle, type Lifecycle } from './lifecycle';
+import { onSettingsChanged, ready } from './store';
+import { IDLE, setState, state } from './state';
+import './visual'; // registers text selection with activate.ts
+
+let started = false;
+
+function onMessage(msg: PageMessage) {
+  if (handleFrameMessage(msg)) {
+    return;
+  }
+  keycastCommand(msg.type);
+  switch (msg.type) {
+    case 'toggle-hints':
+      if (state.phase === 'idle' || state.phase === 'prefix') start('click');
+      else setState(IDLE);
+      break;
+    case 'toggle-site': toggleSite(); break;
+    case 'open-palette': // Alt+K
+      if (state.phase === 'palette') setState(IDLE);
+      else { if (state.phase !== 'idle') setState(IDLE); startPalette(); }
+      break;
+    case 'item-mode': // Alt+I
+      if (state.phase === 'items') setState(IDLE);
+      else { if (state.phase !== 'idle') setState(IDLE); startItems(); }
+      break;
+  }
+}
+
+export function startContent(lifecycle: Lifecycle) {
+  if (started) return;
+  started = true;
+  setLifecycle(lifecycle);
+  // Keys before settings are read (the first moments of a page load) go to the page untouched.
+  let loaded = false;
+  ready.then(() => { loaded = true; });
+  addEventListener('keydown', (e) => { if (alive() && loaded) onKeyDown(e); }, true);
+  installKeyClaims(alive);
+  installLearning();
+  if (IS_TOP) installTips();
+  chrome.runtime.onMessage.addListener((msg: PageMessage) => {
+    if (!alive()) return;
+    if (msg.type === 'start-request') { if (IS_TOP) ready.then(() => start(msg.mode as ModeId)); return; }
+    ready.then(() => onMessage(msg));
+  });
+  ready.then(reportSiteState);
+  onSettingsChanged(reportSiteState);
+  // Replaced by a newer copy (KeyHints reloaded or updated): close whatever is open.
+  lifecycle.onInvalidated(() => { document.querySelectorAll('keyhints-overlay').forEach((el) => el.remove()); });
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Welcome to KeyHints</title>
+<style>
+  :root { color-scheme: light dark; --accent: #e0b400; }
+  body { font: 16px/1.55 system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 28px; margin-bottom: 0; }
+  h2 { font-size: 18px; margin: 34px 0 6px; }
+  .lead { font-size: 18px; opacity: .8; margin-top: 4px; }
+  kbd { font: 600 14px ui-monospace, monospace; border: 1px solid rgba(128,128,128,.5); border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 7px; }
+  .pad { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+  .pad button { font: inherit; padding: 10px 18px; border-radius: 8px; border: 1px solid rgba(128,128,128,.4);
+    background: rgba(128,128,128,.08); cursor: pointer; }
+  .done { color: #16a34a; font-weight: 600; min-height: 1.5em; }
+  .warn { border-left: 4px solid #dc2626; padding: 6px 12px; background: rgba(220,38,38,.08); }
+  .card { border: 1px solid rgba(128,128,128,.3); border-radius: 10px; padding: 4px 18px 14px; margin-top: 18px; }
+  .card button, .row button { font: inherit; padding: 5px 12px; cursor: pointer; }
+  .muted { opacity: .7; font-size: 14px; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+  <h1>KeyHints is on</h1>
+  <p class="lead">Click anything on any page without the mouse. Try it right here: it takes 20 seconds.</p>
+  <div id="shortcut"></div>
+
+  <h2>1. Click without the mouse</h2>
+  <p>Press <kbd>f</kbd> (or <span class="hintkey"><kbd>Alt+J</kbd></span>). Every button gets a letter label.
+    Type the label of any button below.</p>
+  <div class="pad" id="pad1">
+    <button>Explore</button><button>Messages</button><button>Profile</button><button>Settings</button>
+  </div>
+  <p class="done" id="done1" role="status"></p>
+
+  <h2>2. Watch it learn</h2>
+  <p>Labels come from each button's name: <b>Explore</b> is <kbd>e</kbd>, <b>Messages</b> is <kbd>m</kbd>.
+    Pick <b>Home</b> three times (<kbd>f</kbd>, then its label); a button you use often keeps its key on that site,
+    even when other buttons start with the same letter.</p>
+  <div class="pad"><button id="home">Home</button></div>
+  <p class="done" id="done2" role="status"></p>
+
+  <h2>3. Ask for anything</h2>
+  <p>Press <span class="palettekey"><kbd>Alt+K</kbd></span> and type, or dictate, what you want: "new tab",
+    "close duplicate tabs", "next page", or the name of any button or open tab. <kbd>Enter</kbd> runs it.</p>
+
+  <div class="card">
+    <h2>Search bookmarks and history too?</h2>
+    <p>The palette searches open tabs and the page. It can also search your bookmarks and history,
+      if you allow it. Nothing leaves your browser either way.</p>
+    <p class="row"><button id="grant">Allow bookmarks and history</button> <span id="granted" class="done"></span></p>
+  </div>
+
+  <div class="card">
+    <h2>Sharing your screen?</h2>
+    <p>Show keys puts the keys you press in the corner, so people watching can follow along.
+      It never shows what you type into fields.</p>
+    <p class="row"><label><input type="checkbox" id="keycast"> Show keys</label></p>
+  </div>
+
+  <h2>Good to know</h2>
+  <ul>
+    <li><kbd>?</kbd> shows every key that works on the page you're on.</li>
+    <li>On YouTube, Gmail and a few other sites with their own single-key shortcuts, <kbd>f</kbd> stays theirs.
+      <span class="hintkey"><kbd>Alt+J</kbd></span> always works. The toolbar button switches single keys
+      on or off for the current site.</li>
+    <li>Hands-free: open the palette and dictate. A dictated command runs by itself after a moment.</li>
+    <li>No account, no tracking: KeyHints never makes a network request. Your labels stay in this browser.</li>
+  </ul>
+  <p><button id="settings">Open settings</button></p>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
