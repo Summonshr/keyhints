@@ -1345,6 +1345,88 @@ check('palette closes the duplicate tab (same address, ignoring #) and keeps the
 await runPalette('close other tabs');
 check('palette closes every other tab', (await tabCount()) === 1 && second.isClosed(), `${await tabCount()}`);
 
+section('palette: closed, duplicated, pinned tabs and new windows');
+const closing = await context.newPage();
+await closing.goto(`${ORIGIN}/tabtwo`);
+await closing.close();
+await page.bringToFront();
+await load('/nav');
+const tabUrls = () => sw.evaluate(async () => (await chrome.tabs.query({})).map((t) => t.url));
+await runPalette('reopen closed tab');
+check('palette reopens the closed tab', (await tabUrls()).includes(`${ORIGIN}/tabtwo`), (await tabUrls()).join(' '));
+await sw.evaluate(async (u) => chrome.tabs.remove((await chrome.tabs.query({ url: u }))[0].id), `${ORIGIN}/tabtwo`);
+await page.bringToFront();
+await sendToTab('open-palette');
+await settle();
+await page.keyboard.type('tabtwo', { delay: 40 });
+await page.waitForTimeout(400);
+const closedRows = (await overlayNodes()).filter((n) => n.kind === 'result').map((n) => n.text);
+check('typing lists closed tabs as "closed" results', closedRows.some((t) => /^closed/.test(t) && t.includes('/tabtwo')), closedRows.join(' | '));
+await page.keyboard.press('Escape');
+const tabsBefore = (await tabUrls()).length;
+await runPalette('duplicate tab');
+await page.waitForTimeout(300);
+check('palette duplicates the tab', (await tabUrls()).filter((u) => u === `${ORIGIN}/nav`).length === 2, (await tabUrls()).join(' '));
+await sw.evaluate(async (u) => { const [, dupe] = await chrome.tabs.query({ url: u }); await chrome.tabs.remove(dupe.id); }, `${ORIGIN}/nav`);
+await page.bringToFront();
+const pinnedNow = () => sw.evaluate(async (u) => (await chrome.tabs.query({ url: u }))[0].pinned, `${ORIGIN}/nav`);
+await runPalette('pin unpin tab');
+check('palette pins the tab', (await pinnedNow()) === true);
+await runPalette('pin unpin tab');
+check('...and unpins it', (await pinnedNow()) === false);
+const extra = await context.newPage();
+await extra.goto(`${ORIGIN}/tabtwo`);
+await page.bringToFront();
+const windows = () => sw.evaluate(async () => (await chrome.windows.getAll()).length);
+const windowsBefore = await windows();
+await runPalette('move tab to a new window');
+await page.waitForTimeout(300);
+check('palette moves the tab to a new window', (await windows()) === windowsBefore + 1 && (await tabUrls()).length === tabsBefore + 1,
+  `${windowsBefore} -> ${await windows()}`);
+await extra.close();
+
+section('hint style setting');
+const setSettings = (patch) => sw.evaluate(async (p) => {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  await chrome.storage.local.set({ settings: { ...settings, ...p } });
+}, patch);
+const overlayVar = (name) => evalPage((n) => document.querySelector('keyhints-overlay').style.getPropertyValue(n), name);
+await load('/nav');
+await page.keyboard.press('f');
+await settle();
+check('default: normal size, the site\'s own colours', (await overlayVar('--hint-size')) === '11px' && (await overlayVar('--accent')) !== 'rgb(253, 224, 71)');
+await page.keyboard.press('Escape');
+await setSettings({ hintSize: 'large', hintColors: 'light' });
+await page.waitForTimeout(200);
+await page.keyboard.press('f');
+await settle();
+check('large, always light', (await overlayVar('--hint-size')) === '14px' && (await overlayVar('--accent')) === 'rgb(253, 224, 71)',
+  `${await overlayVar('--hint-size')} ${await overlayVar('--accent')}`);
+await page.keyboard.press('Escape');
+await setSettings({ hintSize: 'normal', hintColors: 'site' });
+
+section('sync: settings and pinned keys');
+await page.waitForTimeout(300);
+const synced = (key) => sw.evaluate(async (k) => (await chrome.storage.sync.get(k))[k], key);
+check('settings go to sync', (await synced('settings') || {}).hintColors === 'site');
+await sw.evaluate(async () => {
+  const { 'labels:localhost': m = {} } = await chrome.storage.local.get('labels:localhost');
+  await chrome.storage.local.set({ 'labels:localhost': { ...m, 'A||||||||/pinned-here|pinned here': { label: 'z', used: Date.now(), uses: 1, pinned: true } } });
+});
+await page.waitForTimeout(300);
+check('a pinned key goes to sync', (await synced('pins:localhost') || {})['A||||||||/pinned-here|pinned here'] === 'z', JSON.stringify(await synced('pins:localhost')));
+await sw.evaluate(async () => { // another computer pins q and unpins z
+  await chrome.storage.sync.set({ 'pins:localhost': { 'A||||||||/from-elsewhere|from elsewhere': 'q' } });
+});
+await page.waitForTimeout(300);
+const localPins = await sw.evaluate(async () => Object.entries((await chrome.storage.local.get('labels:localhost'))['labels:localhost'])
+  .filter(([, e]) => e.pinned).map(([, e]) => e.label));
+check('pins from another computer arrive, and its unpins too', JSON.stringify(localPins) === '["q"]', JSON.stringify(localPins));
+await sw.evaluate(async () => chrome.storage.sync.set({ settings: { ...(await chrome.storage.sync.get('settings')).settings, hintSize: 'small' } }));
+await page.waitForTimeout(300);
+check('settings from another computer arrive', (await sw.evaluate(async () => (await chrome.storage.local.get('settings')).settings.hintSize)) === 'small');
+await setSettings({ hintSize: 'normal' });
+
 section('post mode: counts, copy text, save as image');
 await load('/xfeed');
 await sendToTab('item-mode');
@@ -1444,6 +1526,8 @@ await page.keyboard.press('?');
 await settle();
 const legend = ((await overlayNodes()).find((n) => n.kind === 'help') || {}).text || '';
 check('? lists your keys on this site', /Your keys on localhost/.test(legend) && /f HHome/.test(legend), legend.slice(0, 300));
+check('...H for Home under "New this week"', /New this week.*f HHome/.test(legend), legend);
+check('...and the most picked elements with their counts (Help 5×)', /Most picked here.*Help.*\(5×\)/.test(legend), legend);
 await page.keyboard.press('Escape');
 
 section('keys left to a site');

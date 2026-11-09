@@ -63,11 +63,13 @@ Buttons are found by their names; controls that only show on hover get a hover f
 
 **Command palette** (`Alt+K`): type what you want, `Enter` runs it. Searches commands (back,
 scroll, new/close/next tab, last used tab, close other tabs / tabs to the right / duplicate tabs,
+reopen a closed tab, duplicate / pin / unpin the tab, move it to a new window,
 next/previous page, mute tab, like/reply/mute/copy/save the post in the middle, keys on this page,
 tab groups (move the tab to a new group or to a group by name, take it out, collapse the other
 groups, next group), undo the last new single key, leave a key to this site, forget clicks learned
 here, repeat, settings, and the GitHub / Jira keys below on those pages…),
-everything clickable on screen, open tabs, and (once allowed in settings: they're optional
+everything clickable on screen, open tabs, tabs closed this session (`closed` results; reopened
+with their address, not their back/forward history: `Ctrl+Shift+T` does that), and (once allowed in settings: they're optional
 permissions, asked for on a click, never at install) bookmarks and history. Until then a
 "Search bookmarks and history too" entry leads to settings. `Shift+Enter` opens a page in
 a background tab. Before you type, commands for the page lead the list (video controls while a video is on
@@ -119,9 +121,14 @@ it's a browser page (`chrome://`, the Web Store) where extensions can't run.
 **Settings** (`Alt+K` "settings", or the extension's Details → Extension options): your
 shortcuts as the browser has them (flags one another extension took), one list of sites where
 single keys are off (YouTube, Netflix, Gmail, Docs and Figma by default; Enter or paste an address
-to add one), hint letters (changing them keeps the saved labels that still fit), saved labels per
+to add one), hint letters (changing them keeps the saved labels that still fit), hint style (size:
+small / normal / large; colours: the site's own, always dark or always light), saved labels per
 site (view / forget / copy keymap; "forget all" asks for a second click), your keys so far,
 share and back up, palette search, Show keys, tips.
+
+**Sync**: settings and pinned keys go to `chrome.storage.sync`, so they follow you to your other
+computers when the browser's sync is on (without it they stay on this computer). Learned labels stay
+on each computer. When the browser starts, settings already in sync win; pins are merged.
 
 **Show keys** (settings, or the welcome page): a badge in the bottom-left corner shows the keys
 you press, and "Show hints" / "Palette" / "Post mode" for the browser shortcuts, for screen shares
@@ -174,7 +181,8 @@ works, including letters outside the hint alphabet.
 **Learned keys stay put.** A single key you've learned is never taken by another element, however
 often that one is picked (Help can't take `H` from Home). A new single key can be undone: `u` right
 after its toast, or the palette's "undo the last new single key" later (also after the page
-reloaded); every label goes back to how it was. The `?` sheet lists your keys for the site.
+reloaded); every label goes back to how it was. The `?` sheet lists your keys for the site, the
+ones that are new this week, and your five most picked elements there with their counts.
 
 **Learning from your mouse.** Click something that had no hint, and if the click did something
 (the address changed, focus moved, or the page added or removed elements within half a second),

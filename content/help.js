@@ -17,6 +17,9 @@ function helpSections() {
   const mine = learnedKeys().map(({ key, name, pinned }) => [`f ${key.toUpperCase()}`, `${name}${pinned ? ' (pinned)' : ''}`]);
   const kept = sitePassKeys().map((k) => [k, 'left to the site (palette: “leave a key”)']);
   if (mine.length || kept.length) sections.push([`Your keys on ${location.hostname}`, [...mine, ...kept]]);
+  const { learned, top } = weekSummary(); // store.js
+  if (learned.length) sections.push(['New this week', learned.map(({ key, name }) => [`f ${key.toUpperCase()}`, name])]);
+  if (top.length) sections.push(['Most picked here', top.map(({ key, name, uses }) => [`f ${key.toUpperCase()}`, `${name} (${uses}×)`])]);
   const site = siteKeysHelp(); // sites.js
   if (site.length && !off) sections.push([SITE === 'github' ? 'GitHub pull request' : 'Jira', site]);
   const video = videoKeysHelp(); // video.js

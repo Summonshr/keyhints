@@ -144,6 +144,14 @@ async function saveAlphabet() {
   status(forgot ? `Saved. ${forgot} saved label${forgot === 1 ? '' : 's'} used a removed letter and ${forgot === 1 ? 'was' : 'were'} forgotten.` : 'Saved.');
   render();
 }
+// ---------- Hint style (read by content/ui.js) ----------
+getSettings().then((s) => {
+  $('hint-size').value = s.hintSize || 'normal';
+  $('hint-colors').value = s.hintColors || 'site';
+});
+$('hint-size').addEventListener('change', (e) => saveSettings({ hintSize: e.target.value }));
+$('hint-colors').addEventListener('change', (e) => saveSettings({ hintColors: e.target.value }));
+
 $('save-alphabet').addEventListener('click', saveAlphabet);
 $('alphabet').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveAlphabet(); });
 

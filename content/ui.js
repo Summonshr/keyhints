@@ -3,13 +3,13 @@
 const CSS = `
   .hint {
     position: fixed; z-index: 2147483647;
-    font: 600 11px/1 ui-monospace, "JetBrains Mono", "SF Mono", monospace;
+    font: 600 var(--hint-size)/1 ui-monospace, "JetBrains Mono", "SF Mono", monospace;
     text-transform: uppercase; letter-spacing: 0.06em;
     color: var(--fg);
     background: color-mix(in srgb, var(--accent) 90%, transparent);
     backdrop-filter: blur(6px);
     border: 1px solid var(--ring); border-radius: 5px;
-    padding: 3px 5px;
+    padding: 0.27em 0.45em;
     box-shadow: var(--shadow);
     white-space: nowrap; pointer-events: none;
     animation: pop 110ms ease-out;
@@ -165,14 +165,24 @@ function theme() {
   };
 }
 
+// Settings → Hint style. "site" keeps the colours taken from the page.
+const HINT_SIZES = { small: '10px', normal: '11px', large: '14px' };
+const HINT_COLORS = {
+  dark: { '--accent': 'rgb(24, 24, 27)', '--fg': '#fafafa', '--ring': 'rgba(255,255,255,.35)' },
+  light: { '--accent': 'rgb(253, 224, 71)', '--fg': '#111', '--ring': 'rgba(0,0,0,.3)' },
+};
+
 function createHost() {
   const host = document.createElement('keyhints-overlay');
   host.style.cssText = 'all: initial; position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;';
-  for (const [k, v] of Object.entries(theme())) host.style.setProperty(k, v);
+  // Overlays can be drawn before settings are read (store.js); they get the default style then.
+  const { hintSize = 'normal', hintColors = 'site' } = settings || {};
+  const vars = { ...theme(), ...HINT_COLORS[hintColors], '--hint-size': HINT_SIZES[hintSize] };
+  for (const [k, v] of Object.entries(vars)) host.style.setProperty(k, v);
   const root = host.attachShadow({ mode: 'closed' });
-  const style = document.createElement('style');
-  style.textContent = CSS;
-  root.appendChild(style);
+  const sheet = document.createElement('style');
+  sheet.textContent = CSS;
+  root.appendChild(sheet);
   (document.fullscreenElement || document.documentElement).appendChild(host);
   return { host, root };
 }

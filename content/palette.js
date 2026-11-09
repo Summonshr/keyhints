@@ -19,6 +19,10 @@ const COMMANDS = [
   ['Close other tabs', 'close other tabs all except this', () => closeTabs('others')],
   ['Close tabs to the right', 'close tabs right after', () => closeTabs('right')],
   ['Close duplicate tabs', 'close duplicate tabs same dedupe', () => closeTabs('duplicates')],
+  ['Reopen closed tab', 'reopen closed tab undo restore last', () => bgToast('reopen-tab')],
+  ['Duplicate tab', 'duplicate tab copy clone', () => bgToast('tab-action', { op: 'duplicate' })],
+  ['Pin / unpin tab', 'pin unpin tab', () => bgToast('tab-action', { op: 'pin' })],
+  ['Move tab to a new window', 'move tab new window detach separate', () => bgToast('tab-action', { op: 'new-window' })],
   ['Next page', 'next page older more pagination', () => followPageLink(1)],
   ['Previous page', 'previous page newer pagination', () => followPageLink(-1)],
   ['Mute / unmute tab', 'mute unmute sound audio silence tab', () => bg('mute-tab')],
@@ -54,7 +58,12 @@ const COMMANDS = [
 ].map(([title, words, run]) => ({ kind: 'command', title, words, run }));
 
 async function tabGroup(op, groupId) {
-  const { message } = await bg('tab-group', { op, groupId });
+  return bgToast('tab-group', { op, groupId });
+}
+
+// Asks the background page to do something and shows its answer, if it has one.
+async function bgToast(type, extra) {
+  const { message } = await bg(type, extra);
   if (message) toast(message);
 }
 
@@ -64,8 +73,8 @@ async function closeTabs(which) {
   toast(closed ? `Closed ${closed} tab${closed === 1 ? '' : 's'}` : 'No tabs to close');
 }
 
-const KIND_ORDER = { command: 0, page: 1, tab: 2, bookmark: 3, history: 4 };
-const KIND_LABEL = { command: 'do', page: 'click', tab: 'tab', bookmark: 'bookmark', history: 'history' };
+const KIND_ORDER = { command: 0, page: 1, tab: 2, bookmark: 3, history: 4, closed: 5 };
+const KIND_LABEL = { command: 'do', page: 'click', tab: 'tab', closed: 'closed', bookmark: 'bookmark', history: 'history' };
 // Spoken or typed filler that shouldn't have to match ("click the reply button").
 const FILLER = new Set(['please', 'the', 'a', 'an', 'click', 'press', 'tap', 'open', 'go', 'to', 'on', 'button', 'link']);
 
@@ -152,6 +161,8 @@ async function refreshPalette() {
   if (state !== s || seq !== s.seq) return; // closed, or a newer query is on its way
   s.remote = [
     ...res.tabs.map((t) => ({ kind: 'tab', title: t.title, url: t.url, run: () => bg('switch-tab', { tabId: t.id, windowId: t.windowId }) })),
+    ...res.closed.map((c) => ({ kind: 'closed', title: c.title || c.url, url: c.url, words: 'reopen closed',
+      run: () => bgToast('reopen-tab', { url: c.url }) })),
     ...res.bookmarks.map((b) => ({ kind: 'bookmark', title: b.title || b.url, url: b.url })),
     ...res.history.map((h) => ({ kind: 'history', title: h.title || h.url, url: h.url })),
     ...res.groups.map((g) => ({ kind: 'command', title: `Move tab to group: ${g.title}`, words: 'tab group move add join',

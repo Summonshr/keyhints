@@ -25,6 +25,8 @@ function readSettings(stored) {
     disabledSites: (stored && stored.disabledSites) || [],
     enabledSites: (stored && stored.enabledSites) || [], // built-in sites switched back on
     passKeys: (stored && stored.passKeys) || {}, // { [host]: ['f', …] } keys left to the site, KeyHints ignores them there
+    hintSize: (stored && stored.hintSize) || 'normal', // small | normal | large
+    hintColors: (stored && stored.hintColors) || 'site', // site (the page's own colours) | dark | light
   };
 }
 
@@ -115,17 +117,32 @@ async function undoPromotion() {
   return { key: undo.key, text: undo.text };
 }
 
-// Learned keys on this site, for the "?" sheet: single keys and pinned keys, with a readable name
-// taken from the element's signature (its text, else its aria-label, placeholder or link path).
+// A readable name taken from an element's signature: its text, else its aria-label, placeholder or
+// link path. Signatures are lowercase.
+function nameFromSig(sig) {
+  const [, , , aria, , , placeholder, , href, text] = sig.split('|');
+  const name = text || aria || placeholder || href || '(unnamed)';
+  return name[0].toUpperCase() + name.slice(1);
+}
+
+// Learned keys on this site, for the "?" sheet: single keys and pinned keys. `since`: when it got
+// the key (0 for keys learned before that was recorded).
 function learnedKeys() {
   return Object.entries(memory)
     .filter(([, e]) => e.label.length === 1 || e.pinned)
-    .map(([sig, e]) => {
-      const [, , , aria, , , placeholder, , href, text] = sig.split('|');
-      const name = text || aria || placeholder || href || '(unnamed)'; // signatures are lowercase
-      return { key: e.label, name: name[0].toUpperCase() + name.slice(1), pinned: !!e.pinned, uses: usesOf(e) };
-    })
+    .map(([sig, e]) => ({ key: e.label, name: nameFromSig(sig), pinned: !!e.pinned, uses: usesOf(e), since: e.since || 0 }))
     .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+// For the "?" sheet: keys this site gave you in the last 7 days, and the 5 most picked elements.
+function weekSummary() {
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const top = Object.entries(memory)
+    .filter(([, e]) => usesOf(e) >= 2)
+    .sort((a, b) => usesOf(b[1]) - usesOf(a[1]))
+    .slice(0, 5)
+    .map(([sig, e]) => ({ key: e.label, name: nameFromSig(sig), uses: usesOf(e) }));
+  return { learned: learnedKeys().filter((k) => k.since >= weekAgo), top };
 }
 
 // A single-key label can be any lowercase letter (hint-mode keys are Shift+letter): the hint
@@ -168,6 +185,7 @@ function promote(sig, text) {
   if (!best) return null;
   for (const s of best.owners) delete memory[s];
   entry.label = best.key;
+  entry.since = Date.now(); // when it got this key, for the "?" sheet's "new this week"
   return best.key;
 }
 
@@ -177,7 +195,7 @@ function pin(sig, key) {
     if (s !== sig && (memory[s].label.startsWith(key) || key.startsWith(memory[s].label))) delete memory[s];
   }
   const entry = memory[sig];
-  memory[sig] = { label: key, used: Date.now(), uses: entry ? usesOf(entry) : 1, pinned: true };
+  memory[sig] = { label: key, used: Date.now(), uses: entry ? usesOf(entry) : 1, pinned: true, since: Date.now() };
   memory = sanitize(memory);
   chrome.storage.local.set({ [MEMORY_KEY]: memory });
 }
