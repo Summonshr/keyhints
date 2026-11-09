@@ -22,6 +22,7 @@ const COMMANDS = [
   ['Next page', 'next page older more pagination', () => followPageLink(1)],
   ['Previous page', 'previous page newer pagination', () => followPageLink(-1)],
   ['Mute / unmute tab', 'mute unmute sound audio silence tab', () => bg('mute-tab')],
+  ['Mute / unmute this tab, mute all others', 'mute unmute other tabs all except this sound audio silence', () => bg('mute-other-tabs')],
   ['Copy page address', 'copy url link address page', () => copyText(location.href, 'Copied')],
   ['Show hints', 'hints click', () => start('click')],
   ['Copy a link', 'copy link hints', () => start('copy')],

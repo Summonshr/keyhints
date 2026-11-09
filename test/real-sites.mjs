@@ -20,8 +20,11 @@ const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir()
   args: [`--disable-extensions-except=${extPath}`, `--load-extension=${extPath}`],
   viewport: { width: 1280, height: 800 },
 });
-const page = context.pages()[0] || await context.newPage();
 const sw = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
+// The welcome tab opens on install and would be the active tab hints are sent to.
+await new Promise((r) => setTimeout(r, 1500));
+for (const p of context.pages()) if (p.url().includes('welcome.html')) await p.close();
+const page = context.pages()[0] || await context.newPage();
 // Alt+J (bare f is left to sites with their own keys, like YouTube).
 const altJ = () => sw.evaluate(async () => toggleHints((await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]));
 const cdp = await context.newCDPSession(page);

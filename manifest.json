@@ -40,10 +40,13 @@
       "description": "Show hints (click links, focus inputs)"
     },
     "toggle-mute": {
+      "description": "Mute / unmute the current tab"
+    },
+    "mute-other-tabs": {
       "suggested_key": {
         "default": "Alt+M"
       },
-      "description": "Mute / unmute the current tab"
+      "description": "Mute / unmute this tab, and mute all other tabs"
     },
     "open-palette": {
       "suggested_key": {

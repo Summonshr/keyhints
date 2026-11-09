@@ -79,6 +79,14 @@ function isUsable(el) {
   return !el.disabled && el.getAttribute('aria-disabled') !== 'true' && !el.closest('[inert]');
 }
 
+// Faded out (opacity 0 or visibility: hidden, here or on an ancestor), like YouTube's row menus that
+// only appear on hover. Form fields are exempt: custom checkboxes and file pickers often hide
+// the real input that way and show something else in its place.
+function isInvisible(el) {
+  return !['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) &&
+    !el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+}
+
 // Absolute URL of a link, or null if it isn't a real link (javascript:, empty).
 function linkHref(el) {
   if (!el.matches('a[href], area[href]')) return null;
@@ -110,18 +118,25 @@ function findClickables(root = document.documentElement) {
         getComputedStyle(el.parentElement).cursor !== 'pointer' &&
         !el.parentElement.closest(CLICKABLE);
     }
-    if (!match || !isUsable(el)) continue;
+    if (!match || !isUsable(el) || isInvisible(el)) continue;
     const rect = visibleRect(el);
     if (rect) found.push({ el, rect });
   }
-  // A <label for> and its own control would get two hints; keep the control.
+  // A <label for> and its own control would get two hints; keep the control. A link inside a bigger
+  // link to the same address (YouTube's thumbnail inside its playlist row) is the same pick twice;
+  // keep the outer one.
   const els = new Set(found.map((t) => t.el));
+  const insideSameLink = (el, href) => {
+    const outer = href && el.parentElement && el.parentElement.closest('a[href]');
+    return !!outer && els.has(outer) && linkHref(outer) === href;
+  };
   return found
     .filter(({ el }) => !(el.tagName === 'LABEL' && el.control && els.has(el.control)))
     .map((t) => {
       const href = linkHref(t.el);
       return { ...t, text: elementText(t.el), href, isLink: !!href };
     })
+    .filter((t) => !insideSameLink(t.el, t.href))
     .sort(byPosition);
 }
 

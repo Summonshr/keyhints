@@ -18,6 +18,7 @@ const showTip = (id) => { tipQueue = tipQueue.then(() => tipOnce(id)); };
 // Marks the tip seen before showing it, so it never shows twice in one tab; two tabs
 // opening at the same moment could each show it once, which is harmless.
 async function tipOnce(id) {
+  if (extensionGone()) return; // store.js
   const { tipsOff, tipsSeen = [] } = await chrome.storage.local.get(['tipsOff', 'tipsSeen']);
   if (tipsOff || tipsSeen.includes(id)) return;
   await chrome.storage.local.set({ tipsSeen: [...tipsSeen, id] });

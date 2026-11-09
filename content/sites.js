@@ -48,6 +48,33 @@ function activateEl(el) {
   activate({ el, rect: visibleRect(el) || el.getBoundingClientRect(), text: elementText(el), href: linkHref(el), unique: false }, 'click');
 }
 
+// ---------- search results and video lists: digit labels ----------
+// Hint mode labels the main links on screen 1–9, then 0, top to bottom: result titles on Google
+// search pages, and on every YouTube page the video titles (home, search, channel, playlist, the
+// watch page's playlist panel and sidebar). Every other hint keeps its letters. These aren't
+// remembered (they change with every query and feed).
+
+const RESULT_LINKS = {
+  google: '#search a[href]:has(h3)',
+  youtube: ':is(a#video-title, a#video-title-link, a.ytLockupMetadataViewModelTitle, ' +
+    'a.shortsLockupViewModelHostOutsideMetadataEndpoint, ytd-playlist-panel-video-renderer a#wc-endpoint, ' +
+    'ytd-channel-renderer a#main-link)',
+};
+const RESULT_KEYS = '1234567890';
+
+function resultSelector() {
+  if (/(^|\.)google\.[a-z.]+$/.test(location.hostname) && location.pathname === '/search') return RESULT_LINKS.google;
+  if (/(^|\.)youtube\.com$/.test(location.hostname)) return RESULT_LINKS.youtube;
+  return null;
+}
+
+// Map of target -> digit for the first ten results among `targets` (already in screen order).
+function resultLabels(targets) {
+  const selector = resultSelector();
+  if (!selector) return new Map();
+  return new Map(targets.filter((t) => t.el.matches(selector)).slice(0, RESULT_KEYS.length).map((t, i) => [t, RESULT_KEYS[i]]));
+}
+
 // ---------- GitHub: a pull request's files ----------
 
 const onPullFiles = () => SITE === 'github' && /^\/[^/]+\/[^/]+\/pull\/\d+\/(files|changes)/.test(location.pathname);

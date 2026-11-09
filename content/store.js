@@ -7,6 +7,11 @@ const DEFAULT_ALPHABET = 'asdfghjkl' + 'qwertyuiop'; // home row first, then top
 // to these sites unless turned back on with the toolbar button or in settings.
 const SITES_WITH_OWN_KEYS = ['youtube.com', 'netflix.com', 'mail.google.com', 'docs.google.com', 'figma.com'];
 
+// After KeyHints is reloaded or updated, the copy still running in tabs opened before is cut off
+// from the extension: every chrome.* call throws "Extension context invalidated". It stays quiet
+// until the tab is reloaded.
+const extensionGone = () => !chrome.runtime?.id;
+
 let settings = null; // { alphabet, disabledSites, enabledSites }
 let memory = null; // { [signature]: { label, used, uses, pinned } } for this site
 const MEMORY_KEY = `labels:${location.hostname}`;
@@ -123,10 +128,10 @@ function learnedKeys() {
     .sort((a, b) => a.key.localeCompare(b.key));
 }
 
-// A single-key label can be any letter that isn't a hint-mode key (c, b, m…): the hint alphabet,
-// plus letters outside it (n for Notifications), which no generated label ever starts with.
+// A single-key label can be any lowercase letter (hint-mode keys are Shift+letter): the hint
+// alphabet, plus letters outside it (n for Notifications).
 function singleKeyAllowed(key) {
-  return /^[a-z]$/.test(key) && !MODE_BY_KEY[key]; // main.js
+  return /^[a-z]$/.test(key);
 }
 
 // First letters of the words in an element's name, in order: "Notifications" -> n, "Creator Studio" -> s.
@@ -220,11 +225,12 @@ const TOGGLES = [
   [/\b(unfollow|following)\b/gi, 'follow'], [/\bcollapse\b/gi, 'expand'], [/\bshow less\b/gi, 'show more'],
 ];
 
-// A description of the element that survives reloads and layout changes.
-// Digits are masked so "Show 35 posts" and "Show 12 posts" count as the same button.
+// A description of the element that survives reloads and layout changes. Numbers are dropped, with
+// "unread" / "new" after them, so "Show 35 posts" and "Show 12 posts" are the same button, and so
+// are "Notifications" and its unread badge ("1 Notifications", "Notifications (3 unread)").
 function signature(el, text) {
   const norm = (s) => TOGGLES.reduce((acc, [re, word]) => acc.replace(re, word),
-    (s || '').replace(/\s+/g, ' ').trim().toLowerCase().replace(/\d+/g, '#').slice(0, 80));
+    (s || '').toLowerCase().replace(/\(?\d+\+?( unread| new)?\)?/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80));
   const attr = (name) => norm(el.getAttribute(name));
   let href = '';
   const raw = el.getAttribute('href');
@@ -238,12 +244,60 @@ function signature(el, text) {
   ].join('|');
 }
 
-// Remembered labels for elements seen before; fresh ones for the rest (and `extra` fresh labels
-// for hints in child frames). When identical elements are on screen (every post's Like button),
+// ---------- labels from the element's own text ----------
+// "Explore" gets e when it's the only thing on screen starting with e, else ex; "Score card" gets
+// sc. Names that appear more than once on screen (every post's "Reply") and elements without text
+// get generated labels instead. A label from text is saved like any other on the first pick, so it
+// stays put after that.
+
+// Words of a name, accents dropped, each starting with a letter: "Créer 2 posts" -> créer, posts.
+function nameWords(text) {
+  return (text || '').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ').filter((w) => /^[a-z]/.test(w));
+}
+
+// Two-key labels for a name, best first: initials of the first two words, then the first word's
+// first letter with each later letter, then with the initials of later words.
+function nameLabels(words) {
+  const [first, ...rest] = words;
+  const out = rest.length ? [first[0] + rest[0][0]] : [];
+  for (const c of first.slice(1)) if (c >= 'a' && c <= 'z') out.push(first[0] + c);
+  for (const w of rest.slice(1)) out.push(first[0] + w[0]);
+  return [...new Set(out)];
+}
+
+// Labels from text for targets[i], i in `want` (screen order), none clashing with `taken` (as a
+// label or a prefix either way). One key only if `singles` and no other wanted name starts with
+// that letter. Returns Map index -> label.
+function textLabels(targets, want, taken, singles) {
+  const used = new Set(taken), prefixes = new Set();
+  for (const l of taken) for (let i = 1; i < l.length; i++) prefixes.add(l.slice(0, i));
+  // Labels from text are one or two keys, so only their first letter can be a taken label.
+  const clashes = (l) => used.has(l) || prefixes.has(l) || used.has(l[0]);
+  const take = (i, l) => { out.set(i, l); used.add(l); if (l.length === 2) prefixes.add(l[0]); };
+
+  const words = new Map(want.map((i) => [i, nameWords(targets[i].text)]));
+  const count = {};
+  for (const w of words.values()) if (w.length) count[w.join(' ')] = (count[w.join(' ')] || 0) + 1;
+  const named = want.filter((i) => words.get(i).length && count[words.get(i).join(' ')] === 1);
+  const byLetter = {};
+  for (const i of named) (byLetter[words.get(i)[0][0]] ||= []).push(i);
+
+  const out = new Map();
+  if (singles) for (const [letter, group] of Object.entries(byLetter)) if (group.length === 1 && !clashes(letter)) take(group[0], letter);
+  for (const i of named) {
+    if (out.has(i)) continue;
+    const label = nameLabels(words.get(i)).find((l) => !clashes(l));
+    if (label) take(i, label);
+  }
+  return out;
+}
+
+// Remembered labels for elements seen before; labels from text where they can be had (above);
+// fresh ones for the rest (and `extra` fresh labels for hints in child frames). When identical elements are on screen (every post's Like button),
 // the remembered label goes to the copy nearest the centre of the screen. Remembered labels block
 // their slots, and a single-key one blocks every label starting with that key. If that would push
-// labels to three keys when two would do, the least used, then least recent, memories are
-// forgotten until it fits.
+// labels to three keys when two would do, one-key labels from text are dropped first, then all
+// labels from text, then the least used, then least recent, memories are forgotten until it fits.
 function assignLabels(targets, { useMemory, extra = 0 }) {
   const sigs = targets.map((t) => (useMemory ? signature(t.el, t.text) : null));
   const centreDistance = ({ rect }) => Math.hypot(rect.left + rect.width / 2 - innerWidth / 2, rect.top + rect.height / 2 - innerHeight / 2);
@@ -258,15 +312,26 @@ function assignLabels(targets, { useMemory, extra = 0 }) {
   let forgot = false;
   for (;;) {
     const labels = sigs.map((s, i) => (s && owner[s] === i && memory[s] ? memory[s].label : null));
-    const need = labels.filter((l) => !l).length + extra;
-    const fresh = makeLabels(need, new Set(Object.values(memory).map((e) => e.label)));
+    const reserved = new Set(Object.values(memory).map((e) => e.label));
+    const unlabelled = labels.flatMap((l, i) => (l ? [] : [i]));
+    const fits = (fresh) => fresh && fresh.every((l) => l.length <= maxLength);
+    let named = new Map(), fresh = null;
+    for (const singles of useMemory ? [true, false] : []) {
+      named = textLabels(targets, unlabelled, reserved, singles);
+      fresh = makeLabels(unlabelled.length - named.size + extra, new Set([...reserved, ...named.values()]));
+      if (fits(fresh)) break;
+    }
+    if (!fits(fresh)) {
+      named = new Map();
+      fresh = makeLabels(unlabelled.length + extra, reserved);
+    }
     // Throwaway hints (text selection) may go long instead of costing remembered labels, and
     // pinned labels are never forgotten: if only those are left, labels may go long too.
     const forgettable = Object.entries(memory).filter(([, e]) => !e.pinned);
-    if (fresh && (!useMemory || !forgettable.length || fresh.every((l) => l.length <= maxLength))) {
+    if (fresh && (!useMemory || !forgettable.length || fits(fresh))) {
       if (forgot) chrome.storage.local.set({ [MEMORY_KEY]: memory });
       // `unique`: the element can be found again by its signature if the page re-renders it.
-      const local = labels.map((l, i) => ({ label: l || fresh.shift(), sig: sigs[i], unique: !!sigs[i] && copies[sigs[i]] === 1 }));
+      const local = labels.map((l, i) => ({ label: l || named.get(i) || fresh.shift(), sig: sigs[i], unique: !!sigs[i] && copies[sigs[i]] === 1 }));
       return { local, extra: fresh };
     }
     if (!forgettable.length) throw new Error('KeyHints: pinned labels block every label'); // makeLabels returned null

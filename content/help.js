@@ -6,7 +6,7 @@ function helpSections() {
   const sections = [
     ['Anywhere', [
       ['Alt+J', 'hints: click links, focus fields'], ['Alt+K', 'command palette (type or dictate)'],
-      ['Alt+I', 'post mode'], ['Alt+M', 'mute / unmute the tab'], ['Ctrl+← →', 'previous / next tab, when not typing'],
+      ['Alt+I', 'post mode'], ['Alt+M', 'mute / unmute the tab, mute all others'], ['Ctrl+← →', 'previous / next tab, when not typing'],
     ]],
     [off ? 'Single keys (off on this site: toolbar button turns them on)' : 'Single keys, when not typing', [
       ['f', 'hints'], ['F', 'hints, open in a background tab'], [';', 'hints, focus only'], ['y f', 'hints, copy a link'],
@@ -22,8 +22,9 @@ function helpSections() {
   const video = videoKeysHelp(); // video.js
   if (video.length) sections.push(['Video', video]);
   sections.push(['While hints are showing', [
-    ['c', 'copy link'], ['b', 'background tab'], ['m', 'open several'], ['v', 'hover'], [';', 'focus only'],
-    ['x', 'scroll a panel'], ['z', 'select text'], ['/', 'filter'], ['.', 'repeat last pick'], ['!', 'pin a key'],
+    ['C', 'copy link'], ['B', 'background tab'], ['M', 'open several'], ['V', 'hover'], [',', 'right click'], [';', 'focus only'],
+    ['X', 'scroll a panel'], ['Z', 'select text'], ['/', 'filter'], ['.', 'repeat last pick'], ['!', 'pin a key'],
+    ['1 … 0', 'Google results, YouTube videos'],
   ]]);
   sections.push(['Post mode (Alt+I)', [
     ['j k', 'move'], ['l r t b', 'like, reply, repost, bookmark'], ['m p', 'mute, play'], ['o', 'open'],

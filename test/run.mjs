@@ -49,6 +49,13 @@ const nav = `<body style="font:14px sans-serif;margin:10px"><nav>
   <a id="home" href="#home">Home</a> <a id="explore" href="#explore">Explore</a> <a id="notif" href="#notifications">Notifications</a></nav>
   <div style="display:grid;grid-template-columns:repeat(10,80px)">${Array.from({ length: 40 }, (_, i) => `<a href="#f${i}">Filler ${i}</a>`).join('')}</div>
   ${logKeys}</body>`;
+// /names: labels from text, a link nested in a same-address link, and a faded-out menu button.
+const names = `<body style="font:14px sans-serif;margin:10px">
+  <a id="score" href="#score">Score card</a> <a id="search" href="#search">Search</a> <a id="explore" href="#explore">Explore</a>
+  <a id="row" href="/watch?v=1" style="display:block;width:300px;padding:10px;background:#eee">Row title </a>
+  <div style="opacity:0"><button id="ghost">Action menu</button></div>
+  <script>const t = document.createElement('a'); t.id = 'thumb'; t.href = '/watch?v=1'; t.textContent = 'thumbnail';
+    document.getElementById('row').appendChild(t);</script></body>`;
 // /xfeed: X-like posts: counts on the action bar's label, the post's words in tweetText.
 const xfeed = '<body style="font:14px sans-serif;margin:20px">' + Array.from({ length: 4 }, (_, i) => `
   <article style="border:1px solid #ccc;margin:10px 0;padding:10px;height:220px;background:#fff">
@@ -76,6 +83,24 @@ const nav2 = `<body style="font:14px sans-serif;margin:10px"><nav><a id="home2" 
 const slowPage = `<body><a id="early" href="#early">Early link</a><img src="/slow.png"></body>`;
 const bfPage = `<body><a id="bflink" href="/pager2">To page 2</a>
   <script>addEventListener('pageshow', (e) => { window.restored = e.persisted; });</script></body>`;
+// Fake Google and YouTube search pages: result titles get 1–9, 0; thumbnails and the rest keep letters.
+const googleSearch = `<!doctype html><body style="margin:0;font:14px sans-serif"><a href="/settings">Settings</a>
+  <div id="search">${Array.from({ length: 12 }, (_, i) => `<div style="height:56px">
+    <a href="/r${i + 1}"><h3 style="margin:0;font-size:16px">Result ${i + 1}</h3></a> <a href="/more${i + 1}">More</a></div>`).join('')}</div></body>`;
+const youtubeResults = `<!doctype html><body style="margin:0;font:14px sans-serif"><ytd-search style="display:block">
+  ${Array.from({ length: 3 }, (_, i) => `<div style="height:80px"><a id="thumbnail" href="/watch?v=${i + 1}">▶</a>
+    <a id="video-title" href="/watch?v=${i + 1}">Video ${i + 1}</a> <a href="/@chan${i + 1}">Channel ${i + 1}</a></div>`).join('')}
+  </ytd-search></body>`;
+// Fake YouTube watch page with a playlist panel above the sidebar.
+const youtubeWatchList = `<!doctype html><body style="margin:0;font:14px sans-serif"><a href="/">Home</a>
+  <ytd-playlist-panel-renderer style="display:block">${Array.from({ length: 2 }, (_, i) => `<ytd-playlist-panel-video-renderer style="display:block;height:60px">
+    <a id="wc-endpoint" href="/watch?v=p${i + 1}&list=L">Playlist ${i + 1}</a></ytd-playlist-panel-video-renderer>`).join('')}</ytd-playlist-panel-renderer>
+  ${Array.from({ length: 2 }, (_, i) => `<div style="height:60px"><a class="ytLockupViewModelContentImage" href="/watch?v=s${i + 1}">▶</a>
+    <a class="ytLockupMetadataViewModelTitle" href="/watch?v=s${i + 1}">Next up ${i + 1}</a></div>`).join('')}</body>`;
+// /ctx: a row with a custom context menu, built on the contextmenu event.
+const ctxPage = `<body style="font:14px sans-serif;margin:20px"><div id="row" role="button" tabindex="0" style="padding:8px;background:#eee"
+  oncontextmenu="event.preventDefault(); window.ctx = { button: event.button, x: event.clientX > 0 }; menu.hidden = false">File.txt</div>
+  <div id="menu" hidden>Rename</div></body>`;
 const jiraIssue = `<!doctype html><body><h1>ABC-42 Fix the thing</h1>${logKeys}</body>`;
 
 // localhost counts as a secure context, so the clipboard API works there.
@@ -92,8 +117,8 @@ const server = createServer((req, res) => {
   const many = '<body style="margin:0;display:grid;align-content:start;grid-template-columns:repeat(20,50px);font:10px sans-serif">' +
     Array.from({ length: 300 }, (_, i) => `<a href="/m${i}" style="height:40px">L${i}</a>`).join('');
   const pages = { '/': page, '/shifted': shifted, '/many': many, '/frame': framePage, '/big': big, '/feed': feed,
-    '/pager': pager, '/pager2': pager2, '/nav': nav, '/xfeed': xfeed, '/learn': learnPage, '/nav2': nav2,
-    '/slowpage': slowPage, '/bf': bfPage };
+    '/pager': pager, '/pager2': pager2, '/nav': nav, '/names': names, '/xfeed': xfeed, '/learn': learnPage, '/nav2': nav2,
+    '/slowpage': slowPage, '/bf': bfPage, '/ctx': ctxPage };
   res.end(pages[req.url] || `<h1>${req.url}</h1>`);
 });
 await new Promise((resolve) => server.listen(8765, '127.0.0.1', resolve));
@@ -137,6 +162,9 @@ const httpsServer = createHttpsServer({ key: readFileSync(join(certDir, 'key.pem
     }
     res.writeHead(200, { 'content-type': 'text/html' });
     const host = req.headers.host;
+    if (host.startsWith('www.google.com') && req.url.startsWith('/search')) return res.end(googleSearch);
+    if (req.url.startsWith('/results')) return res.end(youtubeResults);
+    if (req.url.startsWith('/watch?v=list')) return res.end(youtubeWatchList);
     if (req.url.startsWith('/watch')) return res.end(host.startsWith('www.netflix.com') ? netflixWatch : youtubeWatch);
     if (host.startsWith('github.com')) return res.end(githubPull);
     if (host.startsWith('example.atlassian.net')) return res.end(jiraIssue);
@@ -169,7 +197,7 @@ const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir()
   headless: true,
   ignoreDefaultArgs: ['--disable-back-forward-cache'], // Playwright turns the cache off; users have it on
   args: [`--disable-extensions-except=${extPath}`, `--load-extension=${extPath}`,
-    '--host-resolver-rules=MAP www.youtube.com:443 127.0.0.1:8766, MAP www.netflix.com:443 127.0.0.1:8766, MAP github.com:443 127.0.0.1:8766, MAP example.atlassian.net:443 127.0.0.1:8766',
+    '--host-resolver-rules=MAP www.youtube.com:443 127.0.0.1:8766, MAP www.google.com:443 127.0.0.1:8766, MAP www.netflix.com:443 127.0.0.1:8766, MAP github.com:443 127.0.0.1:8766, MAP example.atlassian.net:443 127.0.0.1:8766',
     '--ignore-certificate-errors'],
   viewport: { width: 1000, height: 800 },
 });
@@ -325,12 +353,13 @@ for (const [sel, prop] of [['#text', 'value'], ['#area', 'value'], ['#editor', '
   await page.keyboard.press('f');
   await settle();
   const label = await labelFor(sel);
+  const original = await page.locator(sel).evaluate((el, p) => el[p], prop);
   await typeLabel(label);
   const focused = await evalPage(() => document.activeElement.id);
   check(`${sel} focused via hint`, focused === sel.slice(1), `active=${focused}`);
   await page.keyboard.type('XY');
   const val = await page.locator(sel).evaluate((el, p) => el[p], prop);
-  check(`${sel} receives typing after focus (caret at end)`, val.endsWith('XY') && !val.includes(label), `value=${JSON.stringify(val)}`);
+  check(`${sel} receives typing after focus (caret at end)`, val === `${original}XY`, `value=${JSON.stringify(val)}`);
 }
 for (const sel of ['#email', '#sel']) {
   await load();
@@ -414,9 +443,9 @@ await load();
 await altJ();
 await settle();
 const beforeC = await labelFor('#link2');
-await page.keyboard.press('c');
+await page.keyboard.press('Shift+C');
 await settle();
-check('pressing c switches to COPY LINK mode', /^COPY LINK/.test(await barText()), await barText());
+check('Shift+C switches to COPY LINK mode', /^COPY LINK/.test(await barText()), await barText());
 check('labels stay the same after pressing c', (await labelFor('#link2')) === beforeC);
 check('only links remain visible in copy mode', (await visibleHints()).length === 5);
 await typeLabel(beforeC);
@@ -430,11 +459,11 @@ await settle();
 await typeLabel(await labelFor('#link1'));
 await settle();
 check('yf copies link URL', (await evalPage(() => navigator.clipboard.readText())) === `${ORIGIN}/page2`);
-// pressing c twice goes back to click
+// pressing Shift+C twice goes back to click
 await load();
 await page.keyboard.press('f');
-await page.keyboard.press('c');
-await page.keyboard.press('c');
+await page.keyboard.press('Shift+C');
+await page.keyboard.press('Shift+C');
 await settle();
 check('pressing c again returns to CLICK', /^CLICK/.test(await barText()), await barText());
 await page.keyboard.press('Escape');
@@ -451,16 +480,27 @@ for (const how of [[';'], ['f', ';']]) {
 // #10 hover
 await load();
 await page.keyboard.press('f');
-await page.keyboard.press('v');
+await page.keyboard.press('Shift+V');
 await settle();
 check('v switches to HOVER', /^HOVER/.test(await barText()));
 await typeLabel(await labelFor('#hovbtn'));
 check('hover opens a JS hover menu', await evalPage(() => !document.getElementById('menupanel').hidden));
+await load('/ctx');
+await page.keyboard.press('f');
+await settle();
+const rowLabel = await labelFor('#row');
+await page.keyboard.press(',');
+await settle();
+check('"," switches to right click and keeps the labels', /RIGHT CLICK/.test(await barText()) && (await labelFor('#row')) === rowLabel, await barText());
+await typeLabel(rowLabel);
+await settle();
+check('right click opens the site\'s own context menu', await evalPage(() => window.ctx && window.ctx.button === 2 && window.ctx.x && !menu.hidden),
+  JSON.stringify(await evalPage(() => window.ctx)));
 
 // #11 open several
 await load();
 await page.keyboard.press('f');
-await page.keyboard.press('m');
+await page.keyboard.press('Shift+M');
 await settle();
 const pagesBefore = context.pages().length;
 await typeLabel(await labelFor('#link1'));
@@ -475,7 +515,7 @@ for (const p of context.pages().slice(1)) await p.close();
 // #9 scrollable panels
 await load();
 await page.keyboard.press('f');
-await page.keyboard.press('x');
+await page.keyboard.press('Shift+X');
 await settle();
 check('x switches to SCROLL PANEL', /^SCROLL PANEL/.test(await barText()), await barText());
 await typeLabel(await labelFor('#panel'));
@@ -487,7 +527,7 @@ check('PageDown scrolls the focused panel', (await evalPage(() => document.getEl
 // #12 select text
 await load();
 await page.keyboard.press('f');
-await page.keyboard.press('z');
+await page.keyboard.press('Shift+Z');
 await settle();
 check('z switches to SELECT TEXT', /^SELECT TEXT/.test(await barText()), await barText());
 await typeLabel(await labelFor('#para'));
@@ -499,7 +539,7 @@ await page.keyboard.press('y');
 await settle();
 check('v + l×5 + y copies "Hello"', (await evalPage(() => navigator.clipboard.readText())) === 'Hello', await evalPage(() => navigator.clipboard.readText()));
 await page.keyboard.press('f');
-await page.keyboard.press('z');
+await page.keyboard.press('Shift+Z');
 await settle();
 await typeLabel(await labelFor('#para'));
 for (let i = 0; i < 6; i++) await page.keyboard.press('l');
@@ -528,7 +568,7 @@ await page.waitForTimeout(200);
 check('button inside iframe clicked via hint', (await evalPage(() => window.frameMessages || [])).includes('fbtn'));
 await load();
 await page.keyboard.press('f');
-await page.keyboard.press('c');
+await page.keyboard.press('Shift+C');
 await settle();
 await typeLabel(await labelFor('#flink', { frame: true }));
 await settle();
@@ -589,7 +629,7 @@ await settle();
 await typeLabel(await labelFor('#like1'));
 await settle();
 const memo = (await sw.evaluate(() => chrome.storage.local.get('labels:localhost')))['labels:localhost'] || {};
-check('refresh button remembered', Object.keys(memo).some((k) => k.includes('show # posts')));
+check('refresh button remembered', Object.keys(memo).some((k) => k.endsWith('|show posts')));
 check('stored labels are prefix-free', prefixFree(Object.values(memo).map((e) => e.label)));
 // identical elements: the learned label goes to the copy nearest the centre of the screen
 const likeEntry = Object.entries(memo).find(([k]) => k.includes('|like|'));
@@ -704,16 +744,31 @@ console.log(`      (hints on a ${elements}-element page: ${times.join(', ')} ms;
 check('hints appear within 100 ms on a 20k-element page (median)', ms < 100, `${ms} ms`);
 await page.keyboard.press('Escape');
 
-section('Alt+M');
-check('Alt+M bound to toggle-mute', commands.find((c) => c.name === 'toggle-mute')?.shortcut === 'Alt+M');
+section('mute: Alt+M mutes other tabs');
+check('Alt+M bound to mute-other-tabs', commands.find((c) => c.name === 'mute-other-tabs')?.shortcut === 'Alt+M');
 const mutedAfter = () => sw.evaluate(async () => {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   await toggleMute(tab);
   return (await chrome.tabs.get(tab.id)).mutedInfo;
 });
 const m1 = await mutedAfter();
-check('Alt+M mutes the tab (by extension, not a site setting)', m1.muted === true && m1.reason === 'extension', JSON.stringify(m1));
-check('Alt+M again unmutes it', (await mutedAfter()).muted === false);
+check('mute tab mutes it (by extension, not a site setting)', m1.muted === true && m1.reason === 'extension', JSON.stringify(m1));
+check('...and again unmutes it', (await mutedAfter()).muted === false);
+check('mute / unmute this tab is still a command (unbound by default)', commands.some((c) => c.name === 'toggle-mute'));
+const otherTab = await context.newPage();
+await otherTab.goto(`${ORIGIN}/tabtwo`);
+await page.bringToFront();
+const altM = () => sw.evaluate(async (url) => {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  await muteOtherTabs(tab);
+  const [other] = await chrome.tabs.query({ url });
+  return { self: (await chrome.tabs.get(tab.id)).mutedInfo.muted, other: other.mutedInfo.muted };
+}, `${ORIGIN}/tabtwo`);
+const m3 = await altM();
+check('Alt+M mutes this tab and the others', m3.self === true && m3.other === true, JSON.stringify(m3));
+const m4 = await altM();
+check('Alt+M again unmutes this tab, the others stay muted', m4.self === false && m4.other === true, JSON.stringify(m4));
+await otherTab.close();
 
 section('#19 toolbar button: per-site switch with badge');
 await load();
@@ -755,9 +810,9 @@ const shortcutsText = await optionsPage.textContent('#shortcuts');
 check('options: shortcuts read from the browser', /Alt\+J/.test(shortcutsText) && /Alt\+K/.test(shortcutsText), shortcutsText);
 const sitesText = await optionsPage.textContent('#sites');
 check('options: built-in sites in the one "single keys off" list', /youtube\.com.*off/.test(sitesText), sitesText);
-await optionsPage.fill('#alphabet', 'asdc');
+await optionsPage.fill('#alphabet', 'asda');
 await optionsPage.click('#save-alphabet');
-check('options: mode letters rejected in alphabet', /switch modes/.test(await optionsPage.textContent('#status')), await optionsPage.textContent('#status'));
+check('options: repeated letters rejected in alphabet', /only once/.test(await optionsPage.textContent('#status')), await optionsPage.textContent('#status'));
 await optionsPage.fill('#alphabet', 'asdn');
 await optionsPage.press('#alphabet', 'Enter');
 await optionsPage.waitForTimeout(200);
@@ -786,7 +841,11 @@ await load();
 await page.keyboard.press('f');
 await settle();
 const custom = (await getHints()).map((h) => h.label);
-check('hints use only the new letters (or kept single keys)', custom.length === TOTAL && custom.every(fitsNew) && prefixFree(custom), custom.join(','));
+// Labels from an element's text may use any letter; generated ones only the new letters.
+const nameInitials = await evalPage(() => [...document.querySelectorAll('*')].map((e) =>
+  (e.innerText || e.getAttribute('aria-label') || e.getAttribute('placeholder') || e.getAttribute('name') || e.value || '').trim().toLowerCase()[0]).join(''));
+check('generated hints use only the new letters (labels from text may use any)',
+  custom.length === TOTAL && custom.every((l) => fitsNew(l) || nameInitials.includes(l[0])) && prefixFree(custom), custom.join(','));
 await page.keyboard.press('Escape');
 await optionsPage.fill('#new-site', 'http://localhost:8765/some/page');
 await optionsPage.press('#new-site', 'Enter');
@@ -1000,6 +1059,46 @@ await page.waitForTimeout(200);
 check('youtube: toolbar button gives the keys back to the site', (await badge()) === 'off' &&
   !(await sw.evaluate(() => chrome.storage.local.get('settings'))).settings.enabledSites.includes('www.youtube.com'));
 
+section('search results get 1–9, 0 (fake Google and YouTube)');
+const hintAt = async (selector) => {
+  const r = await page.locator(selector).first().evaluate((el) => { const b = el.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top) }; });
+  return ((await getHints()).find((h) => Math.abs(h.atX - r.x) <= 1 && Math.abs(h.atY - r.y) <= 1) || {}).label;
+};
+await page.goto('https://www.google.com/search?q=x');
+await page.waitForTimeout(200);
+await page.mouse.click(990, 790);
+await page.keyboard.press('f');
+await settle();
+const gLabels = await Promise.all(Array.from({ length: 11 }, (_, i) => hintAt(`a[href="/r${i + 1}"]`)));
+check('google: result titles are 1–9 then 0, top to bottom', gLabels.slice(0, 10).join('') === '1234567890', gLabels.join(','));
+check('google: the 11th result and other links keep letters', /^[a-z]+$/.test(gLabels[10] || '') && /^[a-z]+$/.test((await hintAt('a[href="/more1"]')) || '') &&
+  /^[a-z]+$/.test((await hintAt('a[href="/settings"]')) || ''), `${gLabels[10]} ${await hintAt('a[href="/more1"]')}`);
+await page.keyboard.press('3');
+await page.waitForURL('**/r3');
+check('google: 3 opens the third result', page.url().endsWith('/r3'), page.url());
+const gMemory = (await sw.evaluate(() => chrome.storage.local.get('labels:www.google.com')))['labels:www.google.com'] || {};
+check('google: picking a result saves no label', !Object.keys(gMemory).some((sig) => sig.includes('/r3')), JSON.stringify(gMemory));
+await page.goto('https://www.youtube.com/results?search_query=x');
+await page.waitForTimeout(200);
+await page.mouse.click(990, 790);
+await altJ(); await settle();
+check('youtube: video titles are 1 2 3, thumbnails and channels keep letters',
+  (await hintAt('#video-title')) === '1' && (await hintAt('a#video-title[href$="=3"]')) === '3' &&
+  /^[a-z]+$/.test((await hintAt('#thumbnail')) || '') && /^[a-z]+$/.test((await hintAt('a[href="/@chan1"]')) || ''),
+  `${await hintAt('#video-title')} ${await hintAt('#thumbnail')}`);
+await page.keyboard.press('2');
+await page.waitForURL('**/watch?v=2');
+check('youtube: 2 opens the second video', page.url().endsWith('/watch?v=2'), page.url());
+await page.goto('https://www.youtube.com/watch?v=list');
+await page.waitForTimeout(200);
+await page.mouse.click(990, 790);
+await altJ(); await settle();
+const ytWatch = await Promise.all(['a[href="/watch?v=p1&list=L"]', 'a[href="/watch?v=p2&list=L"]', 'a.ytLockupMetadataViewModelTitle[href$="s1"]',
+  'a.ytLockupMetadataViewModelTitle[href$="s2"]', 'a.ytLockupViewModelContentImage', 'a[href="/"]'].map(hintAt));
+check('youtube watch page: playlist then sidebar titles are 1–4, thumbnails and Home keep letters',
+  ytWatch.slice(0, 4).join('') === '1234' && ytWatch.slice(4).every((l) => /^[a-z]+$/.test(l || '')), ytWatch.join(','));
+await page.keyboard.press('Escape');
+
 section('video controls');
 const osdText = async () => ((await overlayNodes()).find((n) => n.kind === 'osd') || {}).text || '';
 const video = (prop) => evalPage((p) => document.getElementById('v')[p], prop);
@@ -1107,16 +1206,30 @@ const pickOn = async (sel) => {
   return label;
 };
 await load('/nav');
+await page.keyboard.press('f');
+await settle();
+const firstSight = [await labelFor('#home'), await labelFor('#explore'), await labelFor('#notif')].join(',');
+check('labels from text on first sight: Home h, Explore e, Notifications n', firstSight === 'h,e,n', firstSight);
+const fillers = (await getHints()).map((h) => h.label).filter((l) => !['h', 'e', 'n'].includes(l));
+check('...repeated names ("Filler n") get generated labels, none starting with h, e or n',
+  fillers.length === 40 && fillers.every((l) => !/^[hen]/.test(l)) && prefixFree(fillers), fillers.join(','));
+await page.keyboard.press('Escape');
 for (let i = 0; i < 3; i++) await pickOn('#notif');
-check('Notifications earns N', /own key: N\b/.test(await toastText()), await toastText());
+check('picking it keeps N, no promotion needed', !/own key/.test(await toastText()), await toastText());
 await page.keyboard.press('f');
 await settle();
 check('...and shows N in hint mode (a letter outside the hint alphabet)', (await labelFor('#notif')) === 'n', await labelFor('#notif'));
 await page.keyboard.press('n');
 await settle();
 check('pressing n picks Notifications (n is no longer a mode key)', page.url().endsWith('#notifications'), page.url());
+await evalPage(() => { document.getElementById('notif').innerHTML = '<span>1</span> Notifications'; });
+await page.keyboard.press('f');
+await settle();
+check('an unread badge ("1 Notifications") does not make it a different element: still n', (await labelFor('#notif')) === 'n', await labelFor('#notif'));
+await page.keyboard.press('Escape');
+await load('/nav');
 for (let i = 0; i < 3; i++) await pickOn('#home');
-check('Home earns H', /own key: H\b/.test(await toastText()), await toastText());
+check('Home keeps H', (await savedLabels()).includes('h'), (await savedLabels()).join(','));
 // Home learned T under the old rule: it moves to H on its next pick.
 await sw.evaluate(async () => {
   const { 'labels:localhost': memo } = await chrome.storage.local.get('labels:localhost');
@@ -1131,6 +1244,22 @@ await settle();
 const navLabels = (await getHints()).map((h) => h.label);
 check('Home on H again, labels prefix-free', (await labelFor('#home')) === 'h' && prefixFree(navLabels), navLabels.join(','));
 await page.keyboard.press('Escape');
+
+section('labels from text, nested and faded-out targets');
+await sw.evaluate(() => chrome.storage.local.remove('labels:localhost'));
+await load('/names');
+await page.keyboard.press('f');
+await settle();
+const nameLabels = [await labelFor('#score'), await labelFor('#search'), await labelFor('#explore')].join(',');
+check('Score card sc, Search se (both start with s), Explore e', nameLabels === 'sc,se,e', nameLabels);
+const namesHints = (await getHints()).map((h) => h.label);
+check('a link inside a same-address link gets no hint of its own', namesHints.length === 4, namesHints.join(','));
+check('a button faded out with opacity 0 gets no hint', !namesHints.some((l) => l.startsWith('a')), namesHints.join(','));
+await typeLabel('s');
+const [scoreTab] = await Promise.all([context.waitForEvent('page', { timeout: 3000 }).catch(() => null), page.keyboard.press('Shift+C')]);
+check('Shift+C after a started label is not a mode switch: it opens sc in a background tab',
+  !!scoreTab && /#score$/.test(scoreTab.url()) && /\/names$/.test(page.url()), `${scoreTab && scoreTab.url()} ${page.url()}`);
+if (scoreTab) await scoreTab.close();
 
 section(']] [[ follow the page’s own Next / Previous links');
 await load('/pager');
@@ -1180,6 +1309,21 @@ await second.mouse.click(5, 5);
 await second.keyboard.press('`');
 await page.waitForTimeout(300);
 check('` again comes back', (await activeTabUrl()) === `${ORIGIN}/nav`, await activeTabUrl());
+await page.bringToFront();
+await evalPage(() => { window.arrowEvents = []; for (const t of ['keydown', 'keyup']) addEventListener(t, (e) => e.key.startsWith('Arrow') && window.arrowEvents.push(t)); });
+await page.keyboard.press('Control+ArrowRight');
+await page.waitForTimeout(300);
+check('Ctrl+→ switches to the next tab', (await activeTabUrl()) === `${ORIGIN}/tabtwo`, await activeTabUrl());
+check('...and the page sees neither its keydown nor its keyup (YouTube jumps chapters on keyup)',
+  JSON.stringify(await evalPage(() => window.arrowEvents)) === '[]', JSON.stringify(await evalPage(() => window.arrowEvents)));
+// Released after the switch, the keyup lands on the new tab, which never saw the keydown.
+await second.evaluate(() => { window.arrowEvents = []; addEventListener('keyup', (e) => e.key.startsWith('Arrow') && window.arrowEvents.push('keyup')); });
+await second.keyboard.down('Control');
+await second.keyboard.up('ArrowRight');
+await second.keyboard.up('Control');
+check('...nor does the tab it switched to see the keyup', JSON.stringify(await second.evaluate(() => window.arrowEvents)) === '[]',
+  JSON.stringify(await second.evaluate(() => window.arrowEvents)));
+await activateUrl(`${ORIGIN}/nav`);
 
 section('palette: close duplicate / other tabs');
 const tabCount = () => sw.evaluate(async () => (await chrome.tabs.query({ lastFocusedWindow: true })).length);

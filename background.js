@@ -25,9 +25,17 @@ function toggleMute(tab) {
   return chrome.tabs.update(tab.id, { muted: !tab.mutedInfo.muted });
 }
 
+// Alt+M: mutes / unmutes this tab, and mutes every other tab in every window (including ones
+// not playing yet).
+async function muteOtherTabs(tab) {
+  const others = (await chrome.tabs.query({ muted: false })).filter((t) => t.id !== tab.id);
+  return Promise.all([toggleMute(tab), ...others.map((t) => chrome.tabs.update(t.id, { muted: true }))]);
+}
+
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'show-hints') toggleHints(tab);
   if (command === 'toggle-mute') toggleMute(tab);
+  if (command === 'mute-other-tabs') muteOtherTabs(tab);
   if (command === 'open-palette') toPage(tab, { type: 'open-palette' });
   if (command === 'post-mode') toPage(tab, { type: 'item-mode' });
 });
@@ -190,6 +198,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case 'next-tab': switchTabBy(sender.tab, 1); break;
     case 'prev-tab': switchTabBy(sender.tab, -1); break;
     case 'mute-tab': toggleMute(sender.tab); break;
+    case 'mute-other-tabs': muteOtherTabs(sender.tab); break;
     case 'open-tab': // content scripts can't open background tabs themselves
       chrome.tabs.create({ url: msg.url, active: false, index: sender.tab.index + 1, openerTabId: tabId });
       break;

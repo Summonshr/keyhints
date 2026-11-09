@@ -4,15 +4,18 @@ const IS_TOP = window === window.top;
 
 // Every hint mode. Modes sharing `targets` switch in place (labels stay the same);
 // switching to a mode with other targets collects new hints.
+// Mode keys are Shift+letter (or punctuation), so every lowercase letter is free for labels taken
+// from the element's text (c for "Cart", sc for "Score card").
 const MODES = {
   click: { name: 'CLICK', targets: 'clickable' },
-  copy: { name: 'COPY LINK', targets: 'clickable', key: 'c', linksOnly: true },
-  newtab: { name: 'BACKGROUND TAB', targets: 'clickable', key: 'b', linksOnly: true },
-  multi: { name: 'OPEN SEVERAL', targets: 'clickable', key: 'm', linksOnly: true },
-  hover: { name: 'HOVER', targets: 'clickable', key: 'v' },
-  focus: { name: 'FOCUS ONLY', targets: 'clickable', key: ';' }, // not n: N is free for labels (Notifications)
-  scroll: { name: 'SCROLL PANEL', targets: 'scroll', key: 'x', help: 'pick a panel, then arrows / Space / PgDn scroll it' },
-  text: { name: 'SELECT TEXT', targets: 'text', key: 'z', help: 'pick where to start' },
+  copy: { name: 'COPY LINK', targets: 'clickable', key: 'C', linksOnly: true },
+  newtab: { name: 'BACKGROUND TAB', targets: 'clickable', key: 'B', linksOnly: true },
+  multi: { name: 'OPEN SEVERAL', targets: 'clickable', key: 'M', linksOnly: true },
+  hover: { name: 'HOVER', targets: 'clickable', key: 'V' },
+  context: { name: 'RIGHT CLICK', targets: 'clickable', key: ',' },
+  focus: { name: 'FOCUS ONLY', targets: 'clickable', key: ';' },
+  scroll: { name: 'SCROLL PANEL', targets: 'scroll', key: 'X', help: 'pick a panel, then arrows / Space / PgDn scroll it' },
+  text: { name: 'SELECT TEXT', targets: 'text', key: 'Z', help: 'pick where to start' },
 };
 const MODE_BY_KEY = Object.fromEntries(Object.entries(MODES).filter(([, m]) => m.key).map(([id, m]) => [m.key, id]));
 
@@ -127,9 +130,15 @@ async function start(mode, scope = null) {
     return;
   }
 
-  const labels = assignLabels(local, { useMemory: targets !== 'text', extra: remote.length });
+  // Google results and YouTube video titles get 1–9, 0 (sites.js); the rest get letters as usual.
+  const digits = targets === 'clickable' && !scope ? resultLabels(local) : new Map();
+  const labels = assignLabels(local.filter((t) => !digits.has(t)), { useMemory: targets !== 'text', extra: remote.length });
   const { host, root } = createHost();
-  const hints = local.map((t, i) => ({ ...t, ...labels.local[i], node: makeHintNode(root, t.rect) }));
+  const hints = local.map((t) => ({
+    ...t,
+    ...(digits.has(t) ? { label: digits.get(t), sig: null, unique: false } : labels.local.shift()),
+    node: makeHintNode(root, t.rect),
+  }));
   remote.forEach((r, i) => hints.push({ ...r, label: labels.extra[i], sig: null, node: null }));
   for (const h of hints) if (h.node) setHintText(h.node, h.label, '');
   layoutHints(hints.filter((h) => h.node));
@@ -144,7 +153,7 @@ async function start(mode, scope = null) {
   }
   render();
 
-  // Replay keys typed while collecting. A key that restarts (x, z) hands the rest to the new start.
+  // Replay keys typed while collecting. A key that restarts (Shift+X, Shift+Z) hands the rest to the new start.
   for (const key of starting.queued) {
     if (state.phase === 'hinting') handleHintKey(key);
     else if (state.phase === 'starting') state.queued.push(key);
@@ -238,16 +247,19 @@ function handleHintKey(e) {
   if (e.key === '.') { setState(IDLE); return repeatLast(); }
   if (e.key === '!') { setPin(s, { step: 'element' }); s.typed = ''; return render(); }
 
-  const key = e.key.toLowerCase();
-  if (MODE_BY_KEY[key]) {
-    const wanted = MODE_BY_KEY[key];
+  // Shift+letter switches mode only before a label is started; after that, Shift on the last
+  // letter opens the pick in a background tab.
+  if (MODE_BY_KEY[e.key] && (s.typed === '' || !/^[A-Z]$/.test(e.key))) {
+    const wanted = MODE_BY_KEY[e.key];
     const mode = s.mode === wanted ? 'click' : wanted; // the same key again goes back to click
     if (MODES[mode].targets !== MODES[s.mode].targets) return start(mode);
     s.mode = mode;
     s.typed = '';
     return render();
   }
-  if (!/^[a-z]$/.test(key)) return; // remembered single keys may be letters outside the alphabet (n)
+  // Labels from text use any letter, not just the alphabet; digits label search results.
+  const key = e.key.toLowerCase();
+  if (!/^[a-z0-9]$/.test(key)) return;
 
   const typed = s.typed + key;
   const matching = visibleHints(typed);
@@ -257,7 +269,7 @@ function handleHintKey(e) {
   if (!exact) return render();
   if (s.pin.step === 'element') {
     s.typed = '';
-    if (!exact.sig) { setPin(s, { step: 'none' }); toast("That one can't be pinned (it's inside a frame or is text)"); return render(); }
+    if (!exact.sig) { setPin(s, { step: 'none' }); toast("That one can't be pinned (it's a numbered result, inside a frame or is text)"); return render(); }
     setPin(s, { step: 'key', hint: exact });
     return render();
   }
@@ -337,11 +349,12 @@ function pointAt(el, rect) {
   return { target: hit && contains(el, hit) ? hit : el, x, y };
 }
 
-function dispatchMouse(target, types, x, y) {
+// button 0 is the left button, 2 the right one.
+function dispatchMouse(target, types, x, y, button = 0) {
   for (const type of types) {
     const bubbles = !/enter|leave/.test(type);
-    const init = { bubbles, cancelable: true, composed: true, view: window, clientX: x, clientY: y, button: 0 };
-    if (type === 'mousedown' || type === 'pointerdown') init.buttons = 1;
+    const init = { bubbles, cancelable: true, composed: true, view: window, clientX: x, clientY: y, button };
+    if (type === 'mousedown' || type === 'pointerdown') init.buttons = button === 2 ? 2 : 1;
     target.dispatchEvent(type.startsWith('pointer')
       ? new PointerEvent(type, { ...init, pointerType: 'mouse', isPrimary: true })
       : new MouseEvent(type, init));
@@ -356,6 +369,13 @@ function hover(el, rect) {
   dispatchMouse(target, ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'], x, y);
   hovered = target;
   el.focus({ preventScroll: true }); // menus built on :focus-within open too
+}
+
+// Opens a site's own context menu (one built on the contextmenu event). The browser's own menu
+// never opens for a scripted event.
+function rightClick(el, rect) {
+  const { target, x, y } = pointAt(el, rect);
+  dispatchMouse(target, ['pointerover', 'mouseover', 'pointermove', 'mousemove', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'contextmenu'], x, y, 2);
 }
 
 function focusScrollable(el) {
@@ -383,6 +403,7 @@ function activate(t, mode) {
   if (mode === 'newtab') return openTab(t.href);
   if (mode === 'focus') return isTextField(el) ? focusField(el) : el.focus();
   if (mode === 'hover') return hover(el, rect);
+  if (mode === 'context') return rightClick(el, rect);
   if (mode === 'scroll') return focusScrollable(el);
   if (mode === 'text') return startVisual(t.textNode);
 
@@ -585,6 +606,9 @@ ready.then(reportSiteState);
 // ---------- keys and messages ----------
 
 addEventListener('keydown', (e) => {
+  if (extensionGone()) return; // store.js
+  if (!e.repeat) swallowKeyupCode = null;
+  keysDownHere.add(e.code);
   if (!settings) return; // storage not read yet (first moments of page load)
   switch (state.phase) {
     case 'selecting': return visualKey(e);
@@ -618,6 +642,23 @@ addEventListener('keydown', (e) => {
 
 let undoUntil = 0; // "u" undoes a new single key for a few seconds after its toast
 
+// A key KeyHints used on keydown keeps its keyup from the page too (YouTube jumps chapters on
+// Ctrl+arrow keyups). Cleared by the next keydown, in case the keyup went to another tab.
+let swallowKeyupCode = null;
+const swallowKeyup = (code) => { swallowKeyupCode = code; };
+// Keydowns this page saw since it last had focus. A Ctrl+arrow keyup without one is the end of
+// a Ctrl+arrow that switched another tab to this one: keep it from the page as well.
+const keysDownHere = new Set();
+addEventListener('blur', () => keysDownHere.clear());
+addEventListener('keyup', (e) => {
+  const sawKeydown = keysDownHere.delete(e.code);
+  const fromTabSwitch = !sawKeydown && e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight');
+  if (e.code !== swallowKeyupCode && !fromTabSwitch) return;
+  swallowKeyupCode = null;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}, true);
+
 function idleKey(e) {
   // Keys this site keeps for itself never reach KeyHints here (palette: "Leave a key to this site").
   if (!e.ctrlKey && !e.altKey && !e.metaKey && sitePassKeys().includes(e.key)) return;
@@ -626,6 +667,7 @@ function idleKey(e) {
   if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isTyping(e)) {
     e.preventDefault();
     e.stopImmediatePropagation();
+    swallowKeyup(e.code); // YouTube jumps chapters on the keyup
     return chrome.runtime.sendMessage({ type: e.key === 'ArrowRight' ? 'next-tab' : 'prev-tab' });
   }
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isTyping(e) || siteDisabled()) return;

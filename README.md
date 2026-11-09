@@ -5,7 +5,7 @@ Click, focus, copy, hover, scroll and select on any page without a mouse.
 ## Install (Helium / any Chromium)
 
 1. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick this folder.
-2. Check `chrome://extensions/shortcuts`: **Show hints** = `Alt+J`, **Mute / unmute** = `Alt+M`,
+2. Check `chrome://extensions/shortcuts`: **Show hints** = `Alt+J`, **Mute / unmute this tab, and mute all other tabs** = `Alt+M`,
    **Command palette** = `Alt+K`, **Post mode** = `Alt+I`.
 3. After pulling changes: click the reload icon on KeyHints, then reload open tabs.
 
@@ -23,7 +23,7 @@ No account, no analytics: KeyHints makes no network requests. Everything is in `
 | `Shift+F` | Hints on links, open the pick in a background tab |
 | `y` `f` | Hints on links, copy the pick's URL |
 | `;` | Focus only (no click) |
-| `Alt+M` | Mute / unmute the current tab |
+| `Alt+M` | Mute / unmute the current tab, and mute every other tab, in every window |
 | `Alt+I` | Post mode (below) |
 | `Alt+K` | Command palette (below) |
 | `Ctrl+←` / `Ctrl+→` | Previous / next tab (like `Ctrl+Shift+Tab` / `Ctrl+Tab`), when you're not typing in a field |
@@ -32,22 +32,25 @@ No account, no analytics: KeyHints makes no network requests. Everything is in `
 | `?` | Sheet of every key that works on this page, with your learned keys for the site. Any key closes it; `?` again opens the site's own list |
 | `u` | Within 5 s of a "now has its own key" toast: undo it (later: palette, "undo the last new single key") |
 
-**While hints are showing** (labels stay the same when you switch modes):
+**While hints are showing** (labels stay the same when you switch modes). Mode letters take Shift,
+before you start typing a label, so every lowercase letter is free for labels:
 
 | Key | Mode |
 |---|---|
-| `c` | Copy link |
-| `b` | Open in background tab |
-| `m` | Open several: each pick opens a background tab, hints stay up |
-| `v` | Hover (opens JS hover menus; CSS-only `:hover` menus can't be triggered) |
+| `Shift+C` | Copy link |
+| `Shift+B` | Open in background tab |
+| `Shift+M` | Open several: each pick opens a background tab, hints stay up |
+| `Shift+V` | Hover (opens JS hover menus; CSS-only `:hover` menus can't be triggered) |
+| `,` | Right click: opens a site's own context menu (the browser's own menu can't be opened this way) |
 | `;` | Focus only |
-| `x` | Scrollable panels: pick one, then arrows / Space / PgDn scroll it |
-| `z` | Select text: pick a start, then `h j k l` `w b` `0 $` move, `v` starts selecting, `y` copies |
+| `Shift+X` | Scrollable panels: pick one, then arrows / Space / PgDn scroll it |
+| `Shift+Z` | Select text: pick a start, then `h j k l` `w b` `0 $` move, `v` starts selecting, `y` copies |
 | `/` | Filter by text, `Enter` to finish (picks it if only one is left) |
 | `.` | Repeat the last pick, on the copy nearest the centre (e.g. like the next post) |
 | `!` | Pin a key: type the element's label, then the letter it should always have |
+| `1`–`9`, `0` | The main links on screen, top to bottom: Google search results, and YouTube video titles (home, search, channel, playlist, the watch page's playlist panel and sidebar). Everything else keeps letters; `Shift+B` then a digit opens one in a background tab |
 | `?` | Sheet of every key (same as `?` outside hint mode) |
-| Shift on the last letter | Open the link in a background tab |
+| Shift on the last letter | Open the link in a background tab (on a one-letter label that is also a mode letter, Shift switches mode instead) |
 | `Esc` / `Backspace` | Cancel (or clear the filter) / undo a letter |
 | `Ctrl+…`, `Alt+…`, `Tab` | Cancel hints and do what they normally do |
 
@@ -135,10 +138,27 @@ again", in settings.
 settings adds them (their own entries win; label clashes go to pinned, then most recent).
 "Download backup" saves every site's labels and the settings as JSON; restore from the file.
 
+## Labels from text
+
+A hint's label comes from the element's own name where it can: **Explore** gets `e` when it's the
+only thing on screen starting with e, else `ex`; **Score card** gets `sc` (the initials of two
+words), then the first letter with a later letter of the word. These use any letter, not just the
+hint alphabet. Names that appear more than once on screen (every post's "Reply"), elements without
+a name, and labels for text selection get generated labels from the hint alphabet instead. If labels
+from text would push the generated ones to three keys, one-letter ones go first, then all of them.
+
+A label from text is saved on the first pick like any other, so it stays put after that. Labels
+you saved before keep winning over labels from text.
+
+Not hinted: elements faded out with opacity 0 or `visibility: hidden` (YouTube's row menus that
+only appear on hover; form fields are exempt, since custom checkboxes hide the real input that way),
+and a link inside a bigger link to the same address (YouTube's thumbnail inside its playlist row).
+
 ## Saved labels
 
 An element you pick keeps its label on that site, even when the page layout changes or a
-number in its text changes ("Show 35 posts" → "Show 12 posts"). Buttons that rename themselves
+number in its text changes ("Show 35 posts" → "Show 12 posts", "Notifications" → "1 Notifications",
+"Notifications (3 unread)"). Buttons that rename themselves
 count as one: mute/unmute, play/pause, like/unlike, follow/following, expand/collapse,
 show more/show less.
 
@@ -148,8 +168,8 @@ show more/show less.
 key and a toast tells you which: the first letter of its name when it can have it (`H` for Home,
 `N` for Notifications), else a home-row key. A key can be taken from saved labels that were all
 picked less often; those get new labels next time. An element that learned a single key before this
-(Home on `T`) moves to its first letter on a later pick, once that letter is free. Letters outside
-the hint alphabet work too, except the hint-mode keys `c` `b` `m` `v` `x` `z`.
+(Home on `T`) moves to its first letter on a later pick, once that letter is free. Any letter
+works, including letters outside the hint alphabet.
 
 **Learned keys stay put.** A single key you've learned is never taken by another element, however
 often that one is picked (Help can't take `H` from Home). A new single key can be undone: `u` right
@@ -199,7 +219,7 @@ Listing copy and permission wording: `STORE.md`. Growth plan: `GROWTH.md`.
 
 - [ ] `Alt+J` on the home timeline: hints on posts, Like/Reply/Repost, the left nav, "Show N posts".
 - [ ] Pick "Show N posts" twice on different days: same label both times.
-- [ ] `Alt+J` `x`: the timeline column is offered as a panel and arrows scroll it.
-- [ ] `Alt+J` `c` on a post's timestamp link: the post URL is copied.
+- [ ] `Alt+J` `Shift+X`: the timeline column is offered as a panel and arrows scroll it.
+- [ ] `Alt+J` `Shift+C` on a post's timestamp link: the post URL is copied.
 - [ ] `Alt+J` in the compose box while typing: hints appear, nothing gets typed into the post.
 - [ ] Toolbar button on x.com: `f` is left to X, badge shows `off`, `Alt+J` still works.

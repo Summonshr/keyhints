@@ -78,7 +78,7 @@ function clickHadEffect(startUrl, startFocus) {
 }
 
 async function learnFromClick(e) {
-  if (!e.isTrusted || e.button !== 0 || !settings) return;
+  if (!e.isTrusted || e.button !== 0 || !settings || extensionGone()) return; // store.js
   const path = e.composedPath().filter((n) => n.nodeType === 1 && n !== document.documentElement && n !== document.body);
   const target = path[0];
   if (!target || hintedAround(path)) return;

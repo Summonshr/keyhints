@@ -1,5 +1,4 @@
 const DEFAULT_ALPHABET = 'asdfghjkl' + 'qwertyuiop';
-const MODE_KEYS = 'cbmvxz'; // keep in sync with MODES in content/main.js: they switch modes, so they can't be label letters
 // Keep in sync with content/store.js: sites whose own single keys win unless turned back on.
 const SITES_WITH_OWN_KEYS = ['youtube.com', 'netflix.com', 'mail.google.com', 'docs.google.com', 'figma.com'];
 
@@ -19,8 +18,6 @@ function validateAlphabet(a) {
   if (!/^[a-z]+$/.test(a)) return 'Use lowercase letters a–z only.';
   if (new Set(a).size !== a.length) return 'Each letter may appear only once.';
   if (a.length < 4) return 'Use at least 4 letters.';
-  const bad = [...a].filter((c) => MODE_KEYS.includes(c));
-  if (bad.length) return `These letters switch modes and can't be used: ${bad.join(' ')}`;
   return null;
 }
 
