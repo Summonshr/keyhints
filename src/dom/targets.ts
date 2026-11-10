@@ -30,10 +30,25 @@ export function isTextField(el: Element | null): boolean {
   return role === 'textbox' || role === 'combobox';
 }
 
+// The element that really has focus, through open and closed shadow roots. (An event's own path
+// stops at a closed root and names the host, not the field inside it.)
+function focusedElement(): Element | null {
+  let el = document.activeElement;
+  while (el instanceof HTMLElement) {
+    const inner: Element | null | undefined = chrome.dom.openOrClosedShadowRoot(el)?.activeElement;
+    if (!inner) break;
+    el = inner;
+  }
+  return el;
+}
+
+// A text field, a select, or an element that takes text through the EditContext API.
+const takesText = (el: Element | null | undefined) =>
+  !!el && (isTextField(el) || el.tagName === 'SELECT' || !!(el as Element & { editContext?: unknown }).editContext);
+
 // Is this key going into a text field or a select (where KeyHints' single keys must not act)?
 export function isTyping(e: KeyboardEvent): boolean {
-  const target = e.composedPath()[0] as Element | undefined;
-  return !!target && (isTextField(target) || target.tagName === 'SELECT');
+  return takesText(e.composedPath()[0] as Element | undefined) || takesText(focusedElement());
 }
 
 export function deepElementFromPoint(x: number, y: number): Element | null {
@@ -102,11 +117,17 @@ export function parseHref(raw: string): URL | null {
   }
 }
 
-// Absolute URL of a link, or null if it isn't a real link (javascript:, malformed).
+// What a page may hand to KeyHints as a link: web, mail and phone addresses, and local files only
+// from a local page. Not javascript:, data:, blob:, chrome: or extension pages: a page can't open
+// those by itself, so it must not get them opened through KeyHints either.
+const LINK_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:']);
+
+// Absolute URL of a link, or null if it isn't a link KeyHints will open or copy.
 export function linkHref(el: Element): string | null {
   if (!el.matches('a[href], area[href]')) return null;
-  const href = parseHref(el.getAttribute('href')!)?.href;
-  return !href || href.startsWith('javascript:') ? null : href;
+  const url = parseHref(el.getAttribute('href')!);
+  if (!url) return null;
+  return LINK_SCHEMES.has(url.protocol) || (url.protocol === 'file:' && location.protocol === 'file:') ? url.href : null;
 }
 
 export function elementText(el: Element): string {

@@ -46,10 +46,14 @@ test.describe('command palette (Alt+K)', () => {
   });
 
   test('voice: dictated text runs by itself; typed text waits for Enter; a key stops a pending run', async ({ kh }) => {
+    const paste = async (text: string) => { // as a dictation tool does: text on the clipboard, then Ctrl+V
+      await kh.evalPage((t) => navigator.clipboard.writeText(t), text);
+      await kh.sendToTab('open-palette');
+      await kh.settle();
+      await kh.press('Control+V');
+    };
     await kh.load();
-    await kh.sendToTab('open-palette');
-    await kh.settle();
-    await kh.page.keyboard.insertText('Scroll down.');
+    await paste('Scroll down.');
     await kh.page.waitForTimeout(1300);
     expect(await kh.evalPage(() => scrollY)).toBeGreaterThan(0);
     expect(await kh.paletteOpen()).toBe(false);
@@ -62,13 +66,57 @@ test.describe('command palette (Alt+K)', () => {
     expect(await kh.paletteOpen()).toBe(true);
     await kh.press('Escape');
     await kh.load();
-    await kh.sendToTab('open-palette');
-    await kh.settle();
-    await kh.page.keyboard.insertText('scroll down');
+    await paste('scroll down');
     await kh.press('ArrowDown');
     await kh.page.waitForTimeout(1300);
     expect(await kh.evalPage(() => scrollY)).toBe(0);
     expect(await kh.paletteOpen()).toBe(true);
+  });
+});
+
+test.describe('the palette and the page under it', () => {
+  test('text a page writes into the palette is taken back out and never runs', async ({ kh }) => {
+    await kh.load();
+    await kh.sendToTab('open-palette');
+    await kh.settle();
+    const wrote = await kh.evalPage(() => document.execCommand('insertText', false, 'scroll down'));
+    await kh.page.waitForTimeout(1300);
+    expect(wrote, 'the page can write into the focused input').toBe(true);
+    expect(await kh.evalPage(() => scrollY), 'nothing ran by itself').toBe(0);
+    expect(await kh.paletteOpen()).toBe(true);
+    expect((await kh.results()).find((r) => r.on)?.text, 'the list is as before the page wrote').not.toMatch(/scroll down/i);
+    await kh.page.keyboard.type('new tab', { delay: 40 }); // the user's own typing still works
+    await kh.settle();
+    expect((await kh.results()).find((r) => r.on)?.text).toMatch(/new tab/i);
+  });
+
+  test('a page can neither read the results nor hear what is typed or pasted', async ({ kh }) => {
+    const other = await kh.context.newPage();
+    await other.goto(`${ORIGIN}/zzsecret-tab`);
+    await kh.page.bringToFront();
+    await kh.load();
+    await kh.evalPage(() => navigator.clipboard.writeText('zzsecret pasted'));
+    await kh.evalPage(() => {
+      (window as any).heard = [];
+      for (const t of ['keydown', 'keypress', 'keyup', 'beforeinput', 'input', 'paste']) {
+        addEventListener(t, (e) => (window as any).heard.push(t), true);
+        document.addEventListener(t, (e) => (window as any).heard.push(t));
+      }
+    });
+    await kh.sendToTab('open-palette');
+    await kh.settle();
+    await kh.page.keyboard.type('zzsecret', { delay: 40 });
+    await kh.page.waitForTimeout(300);
+    expect((await kh.results()).some((r) => r.text!.includes('/zzsecret-tab')), 'the other tab is listed').toBe(true);
+    const read = await kh.evalPage(() => {
+      const found = (window as any).find('zzsecret');
+      getSelection()!.modify('extend', 'forward', 'documentboundary');
+      return { found, selected: getSelection()!.toString() };
+    });
+    expect(read).toEqual({ found: false, selected: '' });
+    await kh.press('Control+V', 'Escape');
+    await kh.settle();
+    expect(await kh.evalPage(() => (window as any).heard), 'no key, input or paste event of the palette reached the page').toEqual([]);
   });
 });
 

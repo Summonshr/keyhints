@@ -6,7 +6,7 @@ import { installKeyClaims } from '../dom/keys';
 import { handleFrameMessage, IS_TOP } from './frames';
 import { start } from './hints';
 import { startItems } from './items';
-import { startPalette } from './palette';
+import { PALETTE_EVENTS, paletteEvent, startPalette } from './palette';
 import { installLearning } from './learn';
 import { installTips } from './tips';
 import { keycastCommand } from './keycast';
@@ -48,8 +48,15 @@ export function startContent(lifecycle: Lifecycle) {
   // Keys before settings are read (the first moments of a page load) go to the page untouched.
   let loaded = false;
   ready.then(() => { loaded = true; });
-  addEventListener('keydown', (e) => { if (alive() && loaded) onKeyDown(e); }, true);
+  // Only real key presses: a page can dispatch KeyboardEvents of its own, and those must never
+  // drive KeyHints (it clicks, opens tabs and reaches into frames of other sites).
+  addEventListener('keydown', (e) => { if (e.isTrusted && alive() && loaded) onKeyDown(e); }, true);
   installKeyClaims(alive);
+  // Whatever else the palette's input emits (it carries what is typed, dictated or pasted) stops
+  // here, before the page's own listeners.
+  for (const type of PALETTE_EVENTS) {
+    addEventListener(type, (e) => { if (alive() && state.phase === 'palette' && e.target === state.host) paletteEvent(e); }, true);
+  }
   installLearning();
   if (IS_TOP) installTips();
   chrome.runtime.onMessage.addListener((msg: PageMessage) => {

@@ -27,6 +27,58 @@ test.describe('hints appear on the right things', () => {
     expect(await kh.visibleHints()).toHaveLength(43);
   });
 
+  test('keys a page script dispatches do nothing: no hints, no clicks in frames, no tab switch', async ({ kh }) => {
+    const second = await kh.context.newPage();
+    await second.goto(`${ORIGIN}/tabtwo`);
+    await kh.page.bringToFront();
+    await kh.load();
+    await kh.evalPage(() => {
+      const key = (k: string, more = {}) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, composed: true, ...more }));
+      key('f');
+      for (const k of '/frame button') key(k);
+      key('Enter');
+      key('ArrowRight', { ctrlKey: true });
+    });
+    await kh.page.waitForTimeout(400);
+    expect(await kh.hints()).toHaveLength(0);
+    expect(await kh.evalPage(() => (window as any).frameMessages || []), 'the button inside the iframe was not clicked').toEqual([]);
+    expect(await kh.activeTabUrl()).toBe(`${ORIGIN}/`);
+  });
+
+  test('links to browser pages, data: pages and (from the web) local files are not treated as links', async ({ kh }) => {
+    await kh.load('/nav');
+    await kh.evalPage(() => document.body.insertAdjacentHTML('afterbegin',
+      '<a href="chrome://version/">Browser page</a> <a href="data:text/html,<h1>x</h1>">Data page</a> <a href="file:///etc/hostname">Local file</a> '));
+    const before = kh.context.pages().length;
+    await kh.press('Shift+F');
+    await kh.settle();
+    expect(await kh.visibleHints(), 'only the 43 web links are offered for a background tab').toHaveLength(43);
+    await kh.press('Escape');
+    const refused = await kh.sw.evaluate(async () => { // and the background refuses such an address if asked anyway
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      return chrome.scripting.executeScript({ target: { tabId: tab.id! }, func: () => chrome.runtime.sendMessage({ type: 'open-tab', url: 'chrome://version/' }) });
+    });
+    expect(JSON.stringify(refused)).toMatch(/not an address a page link may open/);
+    expect(kh.context.pages().length).toBe(before);
+  });
+
+  test('typing in a field inside a closed shadow root is typing: f is a letter there', async ({ kh }) => {
+    await kh.load('/nav');
+    await kh.evalPage(() => {
+      const host = document.createElement('x-login');
+      document.body.prepend(host);
+      const input = document.createElement('input');
+      host.attachShadow({ mode: 'closed' }).append(input);
+      (window as any).field = input;
+      input.focus();
+    });
+    await kh.page.keyboard.type('fh');
+    await kh.settle();
+    expect(await kh.evalPage(() => (window as any).field.value)).toBe('fh');
+    expect(await kh.hints()).toHaveLength(0);
+    expect(kh.page.url()).not.toMatch(/#home$/);
+  });
+
   test('hints are fully on screen, never overlap, and take the site accent', async ({ kh }) => {
     await kh.load();
     await kh.press('f');

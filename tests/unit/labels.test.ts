@@ -22,6 +22,7 @@ describe('makeLabels', () => {
   it('neededLength', () => {
     expect(neededLength(19, ALPHA)).toBe(1);
     expect(neededLength(20, ALPHA)).toBe(2);
+    expect(() => neededLength(3, ''), 'an empty alphabet is an error, not an endless loop').toThrow();
   });
 });
 

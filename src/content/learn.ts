@@ -25,6 +25,7 @@ const stableClass = (c: string) => c.length <= 30 && !/\d/.test(c) && !/^(css|sc
 // The most specific stable description of `el`, or '' when it has none (a bare <span>).
 function describe(el: Element): string {
   const tag = el.tagName.toLowerCase();
+  if (!/^[a-z][a-z0-9-]{0,40}$/.test(tag)) return ''; // a page can name an element anything, at any length
   for (const attr of ['data-testid', 'aria-label', 'role', 'title', 'name']) {
     const v = el.getAttribute(attr);
     if (v && v.length <= 60 && !/\d{3,}/.test(v)) return `${tag}[${attr}=${cssString(v)}]`;

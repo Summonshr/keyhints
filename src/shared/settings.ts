@@ -44,6 +44,20 @@ export function siteDisabled(settings: Settings, host: string): boolean {
   return settings.disabledSites.includes(host) || (hasOwnKeys(host) && !settings.enabledSites.includes(host));
 }
 
+const strings = (v: unknown, max: number) => Array.isArray(v) && v.length <= 2000 && v.every((x) => typeof x === 'string' && x.length <= max);
+
+// Settings from an import, another computer or a request get the same checks as the settings page.
+// Returns an error message, or null when they're fine.
+export function validateSettings(s: Settings): string | null {
+  if (typeof s.alphabet !== 'string' || validateAlphabet(s.alphabet)) return 'The hint letters are invalid.';
+  if (!strings(s.disabledSites, 255) || !strings(s.enabledSites, 255)) return 'The site lists are invalid.';
+  if (!s.passKeys || typeof s.passKeys !== 'object' || Array.isArray(s.passKeys) ||
+    !Object.entries(s.passKeys).every(([site, keys]) => site.length <= 255 && strings(keys, 1))) return 'The keys left to sites are invalid.';
+  if (!['small', 'normal', 'large'].includes(s.hintSize) || !['site', 'dark', 'light'].includes(s.hintColors)) return 'The hint style is invalid.';
+  if (typeof s.keycast !== 'boolean' || typeof s.tips !== 'boolean') return 'The Show keys or tips setting is invalid.';
+  return null;
+}
+
 // Lowercase letters, no repeats, at least 4. Returns an error message, or null when it's fine.
 export function validateAlphabet(a: string): string | null {
   if (!/^[a-z]+$/.test(a)) return 'Use lowercase letters a–z only.';

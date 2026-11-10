@@ -1,8 +1,8 @@
 // Brings other computers' pins and settings in from chrome.storage.sync (store.ts sends ours out).
 // Without browser sync, chrome.storage.sync stays on this computer and nothing arrives.
 
-import { applyPins, type PinMap } from '../core/sync';
-import { readSettings, type Settings } from '../shared/settings';
+import { applyPins, validPins, validTime, type PinMap } from '../core/sync';
+import { readSettings, validateSettings, type Settings } from '../shared/settings';
 import { LABELS_PREFIX } from '../shared/storage';
 import { pinsKey, pushSitePins, updateMemory, updateSettings } from './store';
 
@@ -11,12 +11,14 @@ type SyncedSettings = { value: Settings; at: number };
 
 async function pullSettings(remote: SyncedSettings | undefined) {
   if (!remote) return;
+  // Another computer's settings are taken only if they would pass on the settings page here.
+  if (!validTime(remote.at, Date.now()) || validateSettings(readSettings(remote.value))) return;
   const { settingsAt = 0 } = await chrome.storage.local.get('settingsAt') as { settingsAt?: number };
   if (remote.at > settingsAt) await updateSettings(() => readSettings(remote.value), remote.at, false);
 }
 
 const pullPins = (host: string, remote: PinMap) =>
-  updateMemory(host, (m) => ({ memory: applyPins(m, remote), answer: null }));
+  updateMemory(host, (m) => ({ memory: applyPins(m, validPins(remote, Date.now())), answer: null }));
 
 export function installSync() {
   chrome.storage.onChanged.addListener((changes, area) => {

@@ -18,6 +18,9 @@ describe('identity', () => {
   it('an unread badge does not change the identity', () => {
     expect(identityKey({ ...base, text: '1 Notifications' })).toBe(identityKey(base));
   });
+  it('a made-up element name of any length does not grow the key', () => {
+    expect(identityKey({ ...base, tag: 'x'.repeat(5000) }).length).toBeLessThan(200);
+  });
   it('ignores generated ids', () => {
     expect(stableId(':r1a:')).toBe('');
     expect(stableId('radix-abc')).toBe('');

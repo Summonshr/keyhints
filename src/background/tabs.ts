@@ -151,7 +151,8 @@ export async function paletteQuery(q: string, tab: Tab): Promise<PaletteData> {
     groups: groups.filter((g) => g.id !== tab.groupId).map((g) => ({ id: g.id, title: g.title || `${g.color} group` })),
     tabs: tabs.map((t) => ({ id: t.id!, windowId: t.windowId, title: t.title || '', url: t.url || '' })),
     closed,
-    bookmarks: bookmarks.filter((b) => b.url).slice(0, 15).map((b) => ({ title: b.title, url: b.url! })),
+    bookmarks: bookmarks.filter((b) => b.url && !/^javascript:/i.test(b.url)).slice(0, 15) // bookmarklets can't be opened as a tab
+     .map((b) => ({ title: b.title, url: b.url! })),
     history: history.map((h) => ({ title: h.title || '', url: h.url || '' })),
   };
 }

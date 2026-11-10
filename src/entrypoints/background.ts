@@ -71,6 +71,9 @@ const handlers: { [K in ApiType]: Handler<K> } = {
   },
   // Content scripts can't open background tabs themselves.
   'open-tab': async (a, s) => {
+    // The address comes from a page's link: only what a page could open itself (see dom/targets.ts linkHref).
+    const local = /^file:/i.test(a.url) && /^file:/i.test(tabOf(s).url || '');
+    if (!/^(https?|mailto|tel):/i.test(a.url) && !local) throw new Error('not an address a page link may open');
     await chrome.tabs.create({ url: a.url, active: false, index: tabOf(s).index + 1, openerTabId: tabOf(s).id });
     return ok;
   },
@@ -96,6 +99,7 @@ const handlers: { [K in ApiType]: Handler<K> } = {
     return ok;
   },
   'to-frames': async (a, s) => {
+    if (s.frameId !== 0) throw new Error('only the top frame directs the other frames');
     await chrome.tabs.sendMessage(tabOf(s).id!, a.payload, a.frameId === undefined ? {} : { frameId: a.frameId });
     return ok;
   },
@@ -116,7 +120,8 @@ export default defineBackground(() => {
   chrome.action.setBadgeBackgroundColor({ color: '#6b7280' });
 
   chrome.runtime.onMessage.addListener((msg: { type: ApiType } & Record<string, unknown>, sender, sendResponse) => {
-    const handler = handlers[msg.type] as Handler<ApiType> | undefined;
+    if (sender.id !== chrome.runtime.id) return false; // KeyHints' own pages and content scripts only
+    const handler = Object.hasOwn(handlers, msg.type) ? handlers[msg.type] as Handler<ApiType> : undefined;
     if (!handler) return false; // a message for content scripts
     handler(msg as never, sender).then(sendResponse, (err: Error) => {
       console.error(`KeyHints: ${msg.type} failed`, err);

@@ -3,11 +3,11 @@
 // Pins and settings are copied to chrome.storage.sync as they change (sync.ts brings others' back).
 
 import { keepFitting, pin, remember, sanitize } from '../core/memory';
-import { mergePinMaps, pinsOf, samePins, type PinMap } from '../core/sync';
-import { hasOwnKeys, readSettings, siteDisabled, validateAlphabet, type Settings } from '../shared/settings';
+import { mergePinMaps, pinsOf, samePins, validPins, validTime, type PinMap } from '../core/sync';
+import { hasOwnKeys, readSettings, siteDisabled, validateAlphabet, validateSettings, type Settings } from '../shared/settings';
 import {
-  LABELS_PREFIX, LEARNED_PREFIX, MAX_LEARNED, SCHEMA, labelsKey, learnedKey, undoKey,
-  type Memory, type Undo,
+  LABELS_PREFIX, LEARNED_PREFIX, MAX_ID, MAX_LEARNED, MAX_NAME, MAX_SELECTOR, SCHEMA, labelsKey, learnedKey, undoKey,
+  type Memory, type MemoryEntry, type Undo,
 } from '../shared/storage';
 import type { Backup } from '../shared/messages';
 
@@ -34,7 +34,7 @@ export const pinsKey = (host: string) => `pins:${host}`;
 async function pushPins(host: string, memory: Memory) {
   const mine = pinsOf(memory);
   const { [pinsKey(host)]: synced = {} } = await chrome.storage.sync.get(pinsKey(host));
-  const merged = mergePinMaps(synced as PinMap, mine);
+  const merged = mergePinMaps(validPins(synced as PinMap, Date.now()), mine); // a malformed record in sync is dropped
   if (!samePins(merged, synced as PinMap)) await chrome.storage.sync.set({ [pinsKey(host)]: merged });
 }
 
@@ -52,14 +52,25 @@ export function updateMemory<T>(host: string, fn: (m: Memory, settings: Settings
   });
 }
 
-export const rememberPick = (host: string, id: string, label: string, name: string) =>
-  updateMemory(host, (m, s) => {
+// What a page-side request may save: short strings only (a page chooses its element names).
+function checkEntry(host: string, id: string, label: string, name: string) {
+  const ok = typeof host === 'string' && host.length <= 255 && typeof id === 'string' && id.length <= MAX_ID &&
+    typeof label === 'string' && /^[a-z0-9]{1,8}$/.test(label) && typeof name === 'string' && name.length <= MAX_NAME;
+  if (!ok) throw new Error('that label is not in a form KeyHints saves');
+}
+
+export const rememberPick = async (host: string, id: string, label: string, name: string) => {
+  checkEntry(host, id, label, name);
+  return updateMemory(host, (m, s) => {
     const r = remember(m, id, label, name, s.alphabet, Date.now());
     return { memory: r.memory, answer: { promoted: r.promoted }, undo: r.undo };
   });
+};
 
-export const pinKey = (host: string, id: string, key: string, name: string) =>
-  updateMemory(host, (m) => ({ memory: pin(m, id, key, name, Date.now()), answer: { ok: true as const } }));
+export const pinKey = async (host: string, id: string, key: string, name: string) => {
+  checkEntry(host, id, key, name);
+  return updateMemory(host, (m) => ({ memory: pin(m, id, key, name, Date.now()), answer: { ok: true as const } }));
+};
 
 export const forgetLabels = (host: string, ids: string[]) =>
   updateMemory(host, (m) => {
@@ -127,6 +138,8 @@ export async function readSettingsNow(): Promise<Settings> {
 export function updateSettings(fn: (s: Settings) => Settings, at = Date.now(), push = true) {
   return serial('settings', async () => {
     const next = fn(await readSettingsNow());
+    const error = validateSettings(next); // every way in: the settings page, an import, sync, a request
+    if (error) throw new Error(error);
     await local.set({ settings: next, settingsAt: at });
     if (push) await chrome.storage.sync.set({ settings: { value: next, at } });
     return { ok: true as const };
@@ -164,7 +177,10 @@ export function togglePassKey(host: string, key: string) {
 
 // ---------- learned clicks, tips ----------
 
-export function learnAdd(host: string, selector: string) {
+export async function learnAdd(host: string, selector: string) {
+  if (typeof selector !== 'string' || selector.length > MAX_SELECTOR || typeof host !== 'string' || host.length > 255) {
+    throw new Error('that selector is too long to learn');
+  }
   return serial(learnedKey(host), async () => {
     const { [learnedKey(host)]: stored = [] } = await local.get(learnedKey(host)) as { [k: string]: string[] | undefined };
     if (stored.includes(selector)) return { added: false };
@@ -205,18 +221,26 @@ export function tipsReset() {
 // Throws a readable error when `data` isn't a KeyHints keymap or backup.
 export function validateBackup(data: unknown): Backup {
   const d = data as Backup;
-  if (!d || d.keyhints !== 2 || typeof d.labels !== 'object') throw new Error("That isn't a KeyHints keymap or backup (from this version).");
+  if (!d || d.keyhints !== 2 || !d.labels || typeof d.labels !== 'object') throw new Error("That isn't a KeyHints keymap or backup (from this version).");
+  const now = Date.now();
+  const time = (v: unknown) => v === undefined || validTime(v, now); // nothing dated in the future
+  const entryOk = (id: string, e: MemoryEntry) => id.length <= MAX_ID && !!e && typeof e.label === 'string' && /^[a-z0-9]{1,8}$/.test(e.label) &&
+    typeof e.name === 'string' && e.name.length <= MAX_NAME && validTime(e.used, now) && time(e.pinAt) && time(e.since) &&
+    (e.pinned === undefined || typeof e.pinned === 'boolean') && Number.isInteger(e.uses) && e.uses >= 0;
   for (const [key, entries] of Object.entries(d.labels)) {
-    const ok = key.startsWith(LABELS_PREFIX) && entries && typeof entries === 'object' &&
-      Object.values(entries).every((e) => e && /^[a-z0-9]+$/.test(e.label) && Number.isFinite(e.used) && typeof e.name === 'string');
+    const ok = key.startsWith(LABELS_PREFIX) && key.length <= 300 && entries && typeof entries === 'object' &&
+      Object.entries(entries).every(([id, e]) => entryOk(id, e));
     if (!ok) throw new Error(`The labels for "${key}" aren't in KeyHints' format.`);
   }
   for (const [key, selectors] of Object.entries(d.learned || {})) {
     const ok = key.startsWith(LEARNED_PREFIX) && Array.isArray(selectors) &&
-      selectors.every((sel) => typeof sel === 'string' && sel.length <= 200);
+      selectors.every((sel) => typeof sel === 'string' && sel.length <= MAX_SELECTOR);
     if (!ok) throw new Error(`The learned clicks for "${key}" aren't in KeyHints' format.`);
   }
-  if (d.settings?.alphabet && validateAlphabet(d.settings.alphabet)) throw new Error('The hint letters in it are invalid.');
+  if (d.settings !== undefined) {
+    const error = d.settings && typeof d.settings === 'object' ? validateSettings(readSettings(d.settings)) : 'The settings in it are invalid.';
+    if (error) throw new Error(error);
+  }
   return d;
 }
 

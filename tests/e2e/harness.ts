@@ -117,7 +117,9 @@ export class KH {
     const { root } = await this.cdp.send('DOM.getDocument', { depth: -1, pierce: true });
     const found: OverlayNode[] = [];
     type N = { nodeType: number; nodeValue: string; nodeId: number; attributes?: string[]; children?: N[]; shadowRoots?: N[]; contentDocument?: N };
-    const text = (n: N): string => (n.nodeType === 3 ? n.nodeValue : (n.children || []).map(text).join(''));
+    // Palette results keep titles and addresses in data-text (drawn by CSS), not in text nodes.
+    const drawn = (n: N) => { const a = n.attributes || []; const i = a.indexOf('data-text'); return i >= 0 && i % 2 === 0 ? a[i + 1] : ''; };
+    const text = (n: N): string => (n.nodeType === 3 ? n.nodeValue : drawn(n) + (n.children || []).map(text).join(''));
     (function walk(n: N, inFrame: boolean) {
       const a = n.attributes || [];
       const attrs: Record<string, string> = {};

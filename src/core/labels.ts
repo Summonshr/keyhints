@@ -29,6 +29,7 @@ export function makeLabels(n: number, reserved: Set<string>, alphabet: string): 
 
 // Shortest label length that fits n targets with nothing reserved.
 export function neededLength(n: number, alphabet: string): number {
+  if (alphabet.length < 2) throw new Error('KeyHints: the hint alphabet needs at least 2 letters');
   let len = 1;
   while (alphabet.length ** len < n) len++;
   return len;

@@ -95,6 +95,33 @@ test.describe('settings page', () => {
     await options.waitForTimeout(200);
     expect(await options.textContent('#status')).toMatch(/Nothing imported/);
   });
+
+  test('an import with a time in the future, or with unusable settings, is refused whole', async ({ kh }) => {
+    await kh.load();
+    await kh.pick('#btn');
+    const before = await kh.local();
+    const options = await openOptions(kh);
+    const entry = { label: 'h', name: 'Delete account', used: 1e308, uses: 1, pinned: true, pinAt: 1e308 };
+    for (const paste of [
+      { keyhints: 2, labels: { 'labels:localhost': { x: entry } } },
+      { keyhints: 2, labels: { 'labels:localhost': { x: { ...entry, used: 1, pinAt: 1, label: ['h'] } } } },
+      { keyhints: 2, labels: {}, settings: { alphabet: '' } },
+      { keyhints: 2, labels: {}, settings: { passKeys: 'f' } },
+    ]) {
+      await options.fill('#import-text', JSON.stringify(paste));
+      await options.click('#import');
+      await options.waitForTimeout(250);
+      expect(await options.textContent('#status'), JSON.stringify(paste)).toMatch(/Nothing imported/);
+    }
+    expect(await kh.local()).toEqual(before);
+    // The same from another computer: such settings and pins are left where they are.
+    await kh.sw.evaluate(() => chrome.storage.sync.set({
+      settings: { value: { alphabet: '' }, at: Date.now() + 1000 },
+      'pins:localhost': { x: { label: 'h', name: 'Delete account', pinned: true, at: 1e308 } },
+    }));
+    await kh.page.waitForTimeout(400);
+    expect(await kh.local()).toEqual(before);
+  });
 });
 
 test.describe('hint style', () => {
@@ -185,6 +212,20 @@ test.describe('learning from mouse clicks', () => {
     await kh.runPalette('forget clicks learned here');
     expect(await learned()).toEqual([]);
     expect(await kh.toastText()).toMatch(/Forgot 1 learned/);
+  });
+
+  test('an element with an endless made-up name is not learned', async ({ kh }) => {
+    await kh.load('/learn');
+    await kh.evalPage(() => {
+      const el = document.createElement('x' + 'a'.repeat(5000));
+      el.setAttribute('data-testid', 'a');
+      el.style.cssText = 'position:fixed;left:0;top:0;width:300px;height:300px;display:block';
+      el.addEventListener('click', () => document.body.append(document.createElement('i')));
+      document.body.append(el);
+    });
+    await kh.page.mouse.click(100, 100);
+    await kh.page.waitForTimeout(800);
+    expect((await kh.local('learned:localhost'))['learned:localhost'] || []).toEqual([]);
   });
 
   test('KeyHints drawing its own overlay right after a click is not the page reacting', async ({ kh }) => {

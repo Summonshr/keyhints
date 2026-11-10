@@ -37,3 +37,8 @@ export interface Undo {
 
 export const MAX_REMEMBERED = 300; // per site; least recently used are forgotten first
 export const MAX_LEARNED = 50; // learned click selectors per site
+// Everything saved comes from a page, an import or another computer: all of it has a size limit,
+// so no one site can fill the storage every site shares.
+export const MAX_SELECTOR = 200; // one learned selector
+export const MAX_ID = 1500; // one element identity (ten fields of at most 80 characters, as JSON)
+export const MAX_NAME = 200; // one element name

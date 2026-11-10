@@ -68,6 +68,7 @@ const CSS = `
   .result .kind { font: 600 10px ui-monospace, monospace; text-transform: uppercase; opacity: .65; min-width: 64px; }
   .result .title { overflow: hidden; text-overflow: ellipsis; }
   .result .url { opacity: .5; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .result .title::before, .result .url::before { content: attr(data-text); }
   .pfooter { padding: 6px 16px; font-size: 11px; opacity: .7; border-top: 1px solid var(--ring); }
   .osd {
     position: fixed; left: 50%; top: 12%; transform: translateX(-50%);

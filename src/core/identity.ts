@@ -38,7 +38,7 @@ export function stableId(id: string): string {
 // The key a saved label is stored under. Fields are normalized, so cosmetic changes don't count.
 export function identityKey(f: IdentityFields): string {
   return JSON.stringify([
-    f.tag.toUpperCase(), normalize(f.role), normalize(f.testid), normalize(f.aria), normalize(stableId(f.id)),
+    f.tag.toUpperCase().slice(0, 40), normalize(f.role), normalize(f.testid), normalize(f.aria), normalize(stableId(f.id)),
     normalize(f.name), normalize(f.placeholder), normalize(f.type), normalize(f.href), normalize(f.text),
   ]);
 }

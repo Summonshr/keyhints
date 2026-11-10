@@ -3,6 +3,7 @@
 
 import { normalizeQuery, rank, type Rankable } from '../core/rank';
 import { call } from '../shared/messages';
+import { claim } from '../dom/keys';
 import { createHost, toast } from '../dom/overlay';
 import { findClickables } from '../dom/targets';
 import { activate, copyText } from './activate';
@@ -35,6 +36,9 @@ export interface PaletteState {
   remote: PaletteItem[];
   returnFocus: Element | null;
   lastInputAt: number;
+  value: string; // the text the user has put in so far
+  allowText: string | null; // the character the key just pressed may type
+  allowOther: boolean; // a real key, paste or composition may change the text some other way
 }
 
 // Asks the background script to do something and shows its answer, if it has one.
@@ -139,9 +143,9 @@ export function startPalette() {
     // so they lead the list before you type.
     commands: mainVideo() ? [...siteCommands(), ...VIDEO_COMMANDS, ...COMMANDS] : [...siteCommands(), ...COMMANDS, ...VIDEO_COMMANDS],
     page: pageItems(), remote: [], returnFocus: document.activeElement, lastInputAt: 0,
+    value: '', allowText: null, allowOther: false,
   };
   setState(s);
-  input.addEventListener('input', onPaletteInput);
   input.focus();
   refreshPalette();
 }
@@ -184,14 +188,17 @@ function renderResults(s: PaletteState, query: string) {
     const kind = document.createElement('span');
     kind.className = 'kind';
     kind.textContent = KIND_LABEL[item.kind];
+    // Titles and addresses (other tabs, bookmarks, history) are drawn by CSS from an attribute,
+    // not as text: a closed shadow root doesn't stop the page's window.find() and Selection from
+    // reading text nodes inside it.
     const title = document.createElement('span');
     title.className = 'title';
-    title.textContent = item.title;
+    title.dataset.text = item.title;
     li.append(kind, title);
     if (item.url && item.kind !== 'page') {
       const url = document.createElement('span');
       url.className = 'url';
-      url.textContent = item.url;
+      url.dataset.text = item.url;
       li.append(url);
     }
     return li;
@@ -205,11 +212,32 @@ function runResult(item: PaletteItem, background: boolean) {
   call('open-url', { url: item.url!, background }); // bookmarks and history
 }
 
+// Everything the palette's input emits besides keydown. app.ts stops these before the page's own
+// listeners (they carry what is typed, dictated or pasted) and hands them here.
+export const PALETTE_EVENTS = ['keypress', 'keyup', 'beforeinput', 'input', 'paste', 'cut', 'copy',
+  'compositionstart', 'compositionupdate', 'compositionend'];
+
+export function paletteEvent(e: Event) {
+  const s = palette()!;
+  e.stopImmediatePropagation(); // typing and pasting still happen; the page just doesn't hear of it
+  if (e.isTrusted && (e.type === 'paste' || e.type === 'cut' || e.type.startsWith('composition'))) s.allowOther = true;
+  if (e.type === 'input') onPaletteInput(e as InputEvent);
+}
+
 // Dictation arrives as a paste (Superwhisper) or as a burst of typed characters (typing tools).
 // Either way, run the best match after a short pause, unless a real key is pressed first.
-function onPaletteInput(e: Event) {
+function onPaletteInput(ie: InputEvent) {
   const s = palette()!;
-  const ie = e as InputEvent;
+  // Text counts only when the user put it there. A page can't reach the input, but it can write
+  // into whatever has focus (document.execCommand), and what it wrote would run by itself as a
+  // "dictated" command. So typing must be the character of the key just pressed, and pasting,
+  // deleting and composing must follow a real key, paste or composition event. Anything else is
+  // taken back out.
+  const fromUser = ie.inputType === 'insertText' ? ie.data !== null && ie.data === s.allowText : s.allowOther;
+  s.allowText = null;
+  s.allowOther = false;
+  if (!fromUser) { s.input.value = s.value; return; }
+  s.value = s.input.value;
   const now = performance.now();
   const dictated = ie.inputType === 'insertFromPaste' || (!!ie.data && ie.data.length > 1) || now - s.lastInputAt < 25;
   s.lastInputAt = now;
@@ -220,7 +248,7 @@ function onPaletteInput(e: Event) {
   if (!dictated) return;
   s.autoRun = window.setTimeout(() => {
     if (state !== s || !s.results.length) return;
-    s.footer.textContent = `Running “${s.results[0].title}”`;
+    s.footer.textContent = 'Running the top match';
     runResult(s.results[0], false);
   }, 800);
   s.footer.textContent = 'Voice command: running the top match in a moment · any key to stop';
@@ -229,7 +257,9 @@ function onPaletteInput(e: Event) {
 export function paletteKey(e: KeyboardEvent) {
   const s = palette()!;
   e.stopImmediatePropagation(); // the page never sees keys typed into the palette
-  if (e.key === 'Escape') { e.preventDefault(); return setState(IDLE); }
+  s.allowText = e.key.length === 1 ? e.key : null; // what this key may do to the text (onPaletteInput)
+  s.allowOther = e.key.length !== 1 || e.ctrlKey || e.metaKey;
+  if (e.key === 'Escape') { claim(e); return setState(IDLE); } // claimed: the release comes after the palette is gone
   if (s.autoRun && !(e.ctrlKey && e.key.toLowerCase() === 'v')) { // a real key cancels a pending voice run
     clearTimeout(s.autoRun);
     s.autoRun = null;
@@ -242,7 +272,7 @@ export function paletteKey(e: KeyboardEvent) {
     return renderResults(s, s.input.value);
   }
   if (e.key === 'Enter') {
-    e.preventDefault();
+    claim(e);
     const item = s.results[s.selected];
     if (item) runResult(item, e.shiftKey);
   }
