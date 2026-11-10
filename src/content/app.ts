@@ -5,7 +5,7 @@ import type { PageMessage } from '../shared/messages';
 import { installKeyClaims } from '../dom/keys';
 import { handleFrameMessage, IS_TOP } from './frames';
 import { start } from './hints';
-import { startItems } from './items';
+import { isOwnDownload, startItems } from './items';
 import { PALETTE_EVENTS, paletteEvent, startPalette } from './palette';
 import { installLearning } from './learn';
 import { installTips } from './tips';
@@ -57,6 +57,9 @@ export function startContent(lifecycle: Lifecycle) {
   for (const type of PALETTE_EVENTS) {
     addEventListener(type, (e) => { if (alive() && state.phase === 'palette' && e.target === state.host) paletteEvent(e); }, true);
   }
+  (window as { navigation?: EventTarget }).navigation?.addEventListener('navigate', (e) => {
+    if (isOwnDownload((e as Event & { destination?: { url?: string } }).destination?.url)) e.stopImmediatePropagation();
+  });
   installLearning();
   if (IS_TOP) installTips();
   chrome.runtime.onMessage.addListener((msg: PageMessage) => {

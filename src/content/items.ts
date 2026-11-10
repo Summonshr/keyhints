@@ -108,6 +108,12 @@ function postText(item: Element): string {
 
 export const copyPostText = (item: Element) => copyText(postText(item), 'Copied post text');
 
+// The address of a download KeyHints has just started. The browser announces downloads to the page
+// (the Navigation API's navigate event, address included), and the picture can show frames of
+// other sites, so app.ts keeps that one event from the page's listeners.
+let ownDownload = '';
+export const isOwnDownload = (url: unknown) => ownDownload !== '' && url === ownDownload;
+
 // Screenshot of the post, saved to Downloads. A post taller than the screen is saved from its top
 // down to the bottom of the screen.
 export async function savePostImage(item: Element) {
@@ -135,8 +141,9 @@ export async function savePostImage(item: Element) {
   const a = document.createElement('a');
   a.href = url;
   a.download = `${location.hostname}-post-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.png`;
+  ownDownload = url;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  setTimeout(() => { URL.revokeObjectURL(url); ownDownload = ''; }, 2000);
   toast(tall ? 'Saved the post (the part that fits on screen) to Downloads' : 'Saved the post to Downloads');
 }
 

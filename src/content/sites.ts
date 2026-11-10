@@ -40,7 +40,7 @@ export function followPageLink(step: 1 | -1) {
     return activateEl(target);
   }
   const head = relLinks.find((el) => el.tagName === 'LINK') as HTMLLinkElement | undefined;
-  if (head) return location.assign(head.href);
+  if (head && /^https?:/.test(head.href)) return location.assign(head.href);
   toast(`No ${step > 0 ? 'next' : 'previous'} page link here`);
 }
 

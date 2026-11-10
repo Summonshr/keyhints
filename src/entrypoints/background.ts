@@ -35,9 +35,12 @@ type Handler<K extends ApiType> = (args: Api[K][0], sender: chrome.runtime.Messa
 const ok = { ok: true as const };
 const tabOf = (sender: chrome.runtime.MessageSender) => sender.tab!;
 
+// Nothing is kept from an incognito window: no labels, pins or learned clicks.
+const incognito = (sender: chrome.runtime.MessageSender) => !!sender.tab?.incognito;
+
 const handlers: { [K in ApiType]: Handler<K> } = {
-  remember: (a) => store.rememberPick(a.host, a.id, a.label, a.name),
-  pin: (a) => store.pinKey(a.host, a.id, a.key, a.name),
+  remember: async (a, s) => (incognito(s) ? { promoted: null } : store.rememberPick(a.host, a.id, a.label, a.name)),
+  pin: async (a, s) => (incognito(s) ? ok : store.pinKey(a.host, a.id, a.key, a.name)),
   'forget-labels': (a) => store.forgetLabels(a.host, a.ids),
   'undo-promotion': (a) => store.undoPromotion(a.host),
   'forget-site': (a) => store.forgetSite(a.host),
@@ -47,7 +50,7 @@ const handlers: { [K in ApiType]: Handler<K> } = {
   'settings-patch': (a) => store.updateSettings((s) => ({ ...s, ...a.patch })),
   'toggle-site': (a) => store.toggleSite(a.host),
   'toggle-pass-key': (a) => store.togglePassKey(a.host, a.key),
-  'learn-add': (a) => store.learnAdd(a.host, a.selector),
+  'learn-add': async (a, s) => (incognito(s) ? { added: false } : store.learnAdd(a.host, a.selector)),
   'learn-forget': (a) => store.learnForget(a.host),
   'tip-once': (a) => store.tipOnce(a.id),
   'tips-reset': () => store.tipsReset(),

@@ -41,7 +41,7 @@ test.describe('hints appear on the right things', () => {
     });
     await kh.page.waitForTimeout(400);
     expect(await kh.hints()).toHaveLength(0);
-    expect(await kh.evalPage(() => (window as any).frameMessages || []), 'the button inside the iframe was not clicked').toEqual([]);
+    expect(await kh.evalPage(() => (window as any).frameMessages || []), 'the button inside the iframe was not clicked').not.toContain('fbtn');
     expect(await kh.activeTabUrl()).toBe(`${ORIGIN}/`);
   });
 

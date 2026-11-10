@@ -59,7 +59,9 @@ test.describe('post mode (Alt+I)', () => {
     await kh.press('y');
     await kh.settle();
     expect(await kh.clipboard()).toMatch(/^Hello post \d$/);
+    await kh.evalPage(() => { (window as any).announced = []; (window as any).navigation.addEventListener('navigate', (e: any) => (window as any).announced.push(e.destination.url)); });
     const [download] = await Promise.all([kh.page.waitForEvent('download'), kh.press('s')]);
+    expect(await kh.evalPage(() => (window as any).announced), 'the page is not told the address of the picture').toEqual([]);
     const png = readFileSync((await download.path())!);
     const post = await kh.evalPage(() => { const r = document.querySelector('article')!.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; });
     expect(png.subarray(1, 4).toString()).toBe('PNG');

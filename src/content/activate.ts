@@ -25,11 +25,13 @@ export const setStartVisual = (fn: typeof startVisual) => { startVisual = fn; };
 
 export const openTab = (url: string | null | undefined) => (url ? call('open-tab', { url }) : toast('Not a link'));
 
-export async function copyText(text: string | null | undefined, what: string) {
+// `show`: whether the note names what was copied (not for text from a frame of another site: the
+// note is drawn in this page).
+export async function copyText(text: string | null | undefined, what: string, show = true) {
   if (!text) return toast('Nothing to copy');
   try {
     await navigator.clipboard.writeText(text);
-    toast(`${what}: ${text}`);
+    toast(show ? `${what}: ${text}` : what);
   } catch (err) {
     toast(`Copy failed: ${(err as Error).message}`);
   }

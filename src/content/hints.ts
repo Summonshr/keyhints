@@ -284,7 +284,7 @@ function pick(hint: Hint, shift: boolean) {
   }
   setState(IDLE);
   if (hint.frameId === undefined) return activate(hint as Pickable, mode);
-  if (mode === 'copy') return copyText(hint.href, 'Copied link');
+  if (mode === 'copy') return copyText(hint.href, 'Copied the link in the frame', false);
   if (mode === 'newtab') return openTab(hint.href);
   frameActivate(s.nonce, hint.frameId, hint.index!, mode);
 }

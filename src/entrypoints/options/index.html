@@ -5,112 +5,170 @@
 <title>KeyHints settings</title>
 <meta name="manifest.open_in_tab" content="true">
 <style>
-  :root { color-scheme: light dark; --accent: #e0b400; }
-  body { font: 15px/1.5 system-ui, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 20px; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  h2 { font-size: 17px; margin-top: 32px; border-bottom: 1px solid rgba(128,128,128,.3); padding-bottom: 4px; }
-  p.hint { opacity: .75; margin-top: 4px; }
-  input[type=text] { font: 15px ui-monospace, monospace; padding: 6px 8px; width: 320px; }
-  button { font: inherit; padding: 5px 12px; margin-left: 6px; cursor: pointer; }
+  :root {
+    color-scheme: light dark;
+    --accent: #e0b400; --key: #ffd84d;
+    --page: light-dark(#f4f5f7, #0f1420); --card: light-dark(#fff, #171d2b);
+    --line: light-dark(#e3e6ec, #2a3245); --text: light-dark(#1b2130, #e8ebf2); --muted: light-dark(#667085, #98a2b6);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, sans-serif; color: var(--text); background: var(--page); }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  header img { width: 44px; height: 44px; }
+  h1 { font-size: 26px; margin: 0; letter-spacing: -.01em; }
+  header p { margin: 0; color: var(--muted); }
+  .status { position: sticky; top: 0; z-index: 1; min-height: 34px; margin: 0; padding: 6px 0; font-weight: 600; background: var(--page); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px 20px; margin-top: 14px; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  h3 { font-size: 14px; margin: 18px 0 6px; }
+  .hint { color: var(--muted); font-size: 13.5px; margin: 6px 0 0; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+  label { font-weight: 500; }
+  input[type=text], select, textarea {
+    font: 14px ui-monospace, monospace; color: inherit; background: var(--page);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+  }
+  input[type=text] { flex: 1; min-width: 220px; }
+  select { font-family: inherit; }
+  textarea { width: 100%; resize: vertical; }
+  button {
+    font: inherit; font-size: 14px; color: inherit; cursor: pointer; padding: 6px 14px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.main { background: var(--key); border-color: var(--accent); color: #111; font-weight: 600; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  ul { padding-left: 0; list-style: none; }
-  li { margin: 6px 0; display: flex; align-items: center; gap: 8px; }
-  li code { min-width: 3.5em; }
-  .site { margin: 10px 0; }
-  .status { position: sticky; top: 0; z-index: 1; min-height: 1.5em; margin: 0; padding: 4px 0; font-weight: 600; background: Canvas; }
+  ul { padding: 0; margin: 4px 0 0; list-style: none; }
+  li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  li:first-child { border-top: 0; }
+  li button, .site button { margin-left: auto; }
+  .site button + button { margin-left: 0; }
+  code, kbd { font: 13px ui-monospace, monospace; background: var(--page); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  kbd { border-bottom-width: 2px; }
+  li code { min-width: 3.2em; text-align: center; }
+  #sites li { color: var(--muted); }
+  #sites li code { min-width: 0; color: var(--text); }
+  .site { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .site:first-child { border-top: 0; }
+  .site details { flex: 1; min-width: 240px; }
+  .site summary { cursor: pointer; font-weight: 500; }
+  .site li { border: 0; padding: 3px 0; font-size: 14px; }
   .warn { color: #c2410c; font-weight: 600; }
-  table.keys td { padding: 2px 14px 2px 0; vertical-align: top; }
-  kbd { font: 13px ui-monospace, monospace; border: 1px solid rgba(128,128,128,.5); border-radius: 4px; padding: 0 5px; }
+  table.keys { border-collapse: collapse; width: 100%; }
+  table.keys td { padding: 6px 12px 6px 0; vertical-align: top; border-top: 1px solid var(--line); }
+  table.keys tr:first-child td { border-top: 0; }
+  table.keys td:first-child { white-space: nowrap; }
+  #stats { font-size: 17px; font-weight: 600; margin: 0; }
+  .switch { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .switch:first-of-type { border-top: 0; }
+  .switch > span, .switch > label { flex: 1; }
+  .switch small { display: block; color: var(--muted); font-weight: 400; }
+  details.more > summary { cursor: pointer; font-weight: 600; font-size: 16px; }
+  details.more[open] > summary { margin-bottom: 10px; }
 </style>
 </head>
 <body>
-  <h1>KeyHints</h1>
-  <p class="hint">Everything here works with Tab, Shift+Tab, Enter and Space.</p>
+<main>
+  <header>
+    <img src="/icons/128.png" alt="">
+    <div><h1>KeyHints</h1><p>Settings</p></div>
+  </header>
   <p class="status" id="status" role="status"></p>
 
-  <h2>Shortcuts</h2>
-  <table class="keys" id="shortcuts"></table>
-  <button id="change-shortcuts">Change shortcuts</button>
+  <section>
+    <h2>Shortcuts</h2>
+    <table class="keys" id="shortcuts"></table>
+    <div class="row"><button id="change-shortcuts">Change shortcuts</button></div>
+  </section>
 
-  <h2>Sites where single keys are off</h2>
-  <p class="hint">There, <kbd>f</kbd>, <kbd>F</kbd>, <kbd>;</kbd> and <kbd>y f</kbd> are left to the site
-    (YouTube: <kbd>f</kbd> fullscreen; Gmail: <kbd>f</kbd> forward). <kbd>Alt+J</kbd> always works.
-    The toolbar button switches the site you're on.</p>
-  <ul id="sites"></ul>
-  <label for="new-site">Turn single keys off on another site:</label><br>
-  <input type="text" id="new-site" placeholder="www.example.com or paste its address" autocomplete="off" spellcheck="false">
-  <button id="add-site">Turn off</button>
+  <section>
+    <h2>Sites where single keys are off</h2>
+    <ul id="sites"></ul>
+    <div class="row">
+      <input type="text" id="new-site" placeholder="www.example.com or paste its address" aria-label="Turn single keys off on another site" autocomplete="off" spellcheck="false">
+      <button id="add-site">Turn off</button>
+    </div>
+    <p class="hint">There, <kbd>f</kbd> and the other single keys are left to the site. <kbd>Alt+J</kbd> always works. The toolbar button switches the site you're on.</p>
+  </section>
 
-  <h2>Hint letters</h2>
-  <label for="alphabet">Letters used for labels, easiest first:</label><br>
-  <input type="text" id="alphabet" autocomplete="off" spellcheck="false">
-  <button id="save-alphabet">Save</button>
-  <button id="reset-alphabet">Restore default</button>
-  <p class="hint">Lowercase letters, no repeats, at least 4. These are for generated labels; labels
-    taken from an element's name use any letter. Saved labels using a letter you remove are
-    forgotten; the rest are kept.</p>
+  <section>
+    <h2>Hints</h2>
+    <div class="row">
+      <label for="alphabet">Letters</label>
+      <input type="text" id="alphabet" autocomplete="off" spellcheck="false">
+      <button id="save-alphabet" class="main">Save</button>
+      <button id="reset-alphabet">Restore default</button>
+    </div>
+    <p class="hint">Lowercase, no repeats, at least 4, easiest first. Labels taken from an element's name can use any letter.</p>
+    <div class="row">
+      <label for="hint-size">Size</label>
+      <select id="hint-size"><option value="small">Small</option><option value="normal">Normal</option><option value="large">Large</option></select>
+      <label for="hint-colors">Colours</label>
+      <select id="hint-colors"><option value="site">The site's own colours</option><option value="dark">Always dark</option><option value="light">Always light (yellow)</option></select>
+    </div>
+  </section>
 
-  <h2>Hint style</h2>
-  <label for="hint-size">Size:</label>
-  <select id="hint-size"><option value="small">Small</option><option value="normal">Normal</option><option value="large">Large</option></select>
-  <label for="hint-colors">Colours:</label>
-  <select id="hint-colors"><option value="site">The site's own colours</option><option value="dark">Always dark</option><option value="light">Always light (yellow)</option></select>
+  <section>
+    <h2>Saved labels</h2>
+    <p id="stats">No picks yet.</p>
+    <div class="row"><button id="stats-image">Save as image</button></div>
+    <h3>By site</h3>
+    <div id="memory"></div>
+    <div class="row"><button id="forget-all">Forget all saved labels</button></div>
+  </section>
 
-  <h2>Saved labels</h2>
-  <p class="hint">Elements you pick keep their label on later visits. Forget them per site or all at once.</p>
-  <div id="memory"></div>
-  <button id="forget-all">Forget all saved labels</button>
+  <section>
+    <h2>Share and back up</h2>
+    <div class="row">
+      <button id="export" class="main">Download backup</button>
+      <input type="file" id="import-file" accept=".json,application/json" hidden><button id="import-pick">Restore from file…</button>
+    </div>
+    <h3><label for="import-text">Paste a keymap or backup</label></h3>
+    <textarea id="import-text" rows="3" spellcheck="false"></textarea>
+    <div class="row"><button id="import">Add these labels</button></div>
+    <p class="hint">"Copy keymap" under a site copies its labels as text. Pasted labels are added to yours; in a clash the pinned one, then the most recent, wins.</p>
+  </section>
 
-  <h2>Your keys so far</h2>
-  <p id="stats">No picks yet.</p>
-  <button id="stats-image">Save as image</button>
-  <p class="hint">Counted from your saved labels, in this browser only. Nothing is sent anywhere.</p>
+  <section>
+    <h2>More</h2>
+    <div class="switch">
+      <span>Palette search<small><span id="search-state"></span> Nothing leaves your browser either way.</small></span>
+      <button id="search-toggle"></button>
+    </div>
+    <div class="switch">
+      <label for="keycast">Show the keys I press<small>In the bottom-left corner, for screen sharing. What you type into fields is never shown.</small></label>
+      <input type="checkbox" id="keycast">
+    </div>
+    <div class="switch">
+      <label for="tips">One-time tips<small>A short note the first time something is useful.</small></label>
+      <button id="tips-reset">Show them again</button>
+      <input type="checkbox" id="tips">
+    </div>
+    <p class="hint">Sync: settings and pinned keys go to your other computers when the browser's sync is on. Forgetting a site's labels unpins its keys there too.</p>
+  </section>
 
-  <h2>Share and back up</h2>
-  <p class="hint">"Copy keymap" (under each site above) copies that site's labels as text a friend can paste here.
-    A backup file holds every site's labels and your settings, for a new computer.</p>
-  <button id="export">Download backup</button>
-  <input type="file" id="import-file" accept=".json,application/json" hidden><button id="import-pick">Restore from file…</button>
-  <p><label for="import-text">Paste a keymap or backup:</label><br>
-    <textarea id="import-text" rows="3" cols="60" spellcheck="false"></textarea><br>
-    <button id="import">Add these labels</button></p>
-  <p class="hint">Imported labels are added to yours; where two clash, the pinned one, then the most recent, wins.</p>
-
-  <h2>Sync</h2>
-  <p class="hint">Settings and pinned keys go to your other computers when the browser's sync is on. Learned labels stay on
-    each computer. Forgetting a site's labels unpins its keys on every computer too.</p>
-
-  <h2>Palette search</h2>
-  <p class="hint">The palette (<kbd>Alt+K</kbd>) always searches open tabs and the page. It can search bookmarks and
-    history too, if you allow it. Nothing leaves your browser either way.</p>
-  <p><span id="search-state"></span> <button id="search-toggle"></button></p>
-
-  <h2>Show keys</h2>
-  <label><input type="checkbox" id="keycast"> Show the keys I press in the bottom-left corner</label>
-  <p class="hint">For screen sharing and recordings, so others can follow. What you type into fields is never shown.</p>
-
-  <h2>Tips</h2>
-  <label><input type="checkbox" id="tips"> Show one-time tips</label>
-  <button id="tips-reset">Show them again</button>
-  <p class="hint">A short note the first time something is useful (a video plays, you open X…). Each shows once.</p>
-
-  <h2>Other keys</h2>
-  <table class="keys">
-    <tr><td><kbd>f</kbd></td><td>Show hints (click / focus), when not typing</td></tr>
-    <tr><td><kbd>Shift+F</kbd></td><td>Open a link in a background tab</td></tr>
-    <tr><td><kbd>y</kbd> <kbd>f</kbd></td><td>Copy a link</td></tr>
-    <tr><td><kbd>;</kbd></td><td>Focus only</td></tr>
-    <tr><td>In hint mode: <kbd>Shift+C</kbd> <kbd>Shift+B</kbd> <kbd>Shift+M</kbd> <kbd>Shift+V</kbd> <kbd>,</kbd> <kbd>;</kbd></td><td>copy link / background tab / open several / hover / right click / focus only</td></tr>
-    <tr><td>In hint mode: <kbd>Shift+X</kbd> <kbd>Shift+Z</kbd> <kbd>/</kbd></td><td>scroll a panel / select text / filter by text</td></tr>
-    <tr><td>In hint mode: <kbd>.</kbd> <kbd>!</kbd></td><td>repeat the last pick / pin a key to an element</td></tr>
-    <tr><td>Shift on the last letter</td><td>Open the link in a background tab</td></tr>
-    <tr><td>Post mode</td><td><kbd>j</kbd> <kbd>k</kbd> move, <kbd>l</kbd> like, <kbd>r</kbd> reply, <kbd>t</kbd> repost, <kbd>b</kbd> bookmark, <kbd>m</kbd> mute, <kbd>p</kbd> play, <kbd>o</kbd> open, <kbd>c</kbd> copy link, <kbd>y</kbd> copy text, <kbd>s</kbd> save as image, <kbd>f</kbd> hints in the post</td></tr>
-    <tr><td><kbd>]</kbd> <kbd>]</kbd> / <kbd>[</kbd> <kbd>[</kbd></td><td>Next / previous page (the page's own Next / Previous link)</td></tr>
-    <tr><td><kbd>`</kbd></td><td>Back to the tab you were on before</td></tr>
-    <tr><td><kbd>Ctrl+←</kbd> <kbd>Ctrl+→</kbd></td><td>Previous / next tab, when not typing</td></tr>
-    <tr><td><kbd>?</kbd></td><td>All the keys that work on the page (<kbd>?</kbd> again: the site's own)</td></tr>
-  </table>
-
-  <script type="module" src="./main.ts"></script>
+  <section>
+    <details class="more">
+      <summary>All keys</summary>
+      <table class="keys">
+        <tr><td><kbd>f</kbd></td><td>Show hints (click / focus), when not typing</td></tr>
+        <tr><td><kbd>Shift+F</kbd></td><td>Open a link in a background tab</td></tr>
+        <tr><td><kbd>y</kbd> <kbd>f</kbd></td><td>Copy a link</td></tr>
+        <tr><td><kbd>;</kbd></td><td>Focus only</td></tr>
+        <tr><td><kbd>Shift+C</kbd> <kbd>Shift+B</kbd> <kbd>Shift+M</kbd> <kbd>Shift+V</kbd> <kbd>,</kbd> <kbd>;</kbd></td><td>In hint mode: copy link / background tab / open several / hover / right click / focus only</td></tr>
+        <tr><td><kbd>Shift+X</kbd> <kbd>Shift+Z</kbd> <kbd>/</kbd></td><td>In hint mode: scroll a panel / select text / filter by text</td></tr>
+        <tr><td><kbd>.</kbd> <kbd>!</kbd></td><td>In hint mode: repeat the last pick / pin a key to an element</td></tr>
+        <tr><td>Shift on the last letter</td><td>Open the link in a background tab</td></tr>
+        <tr><td>Post mode</td><td><kbd>j</kbd> <kbd>k</kbd> move, <kbd>l</kbd> like, <kbd>r</kbd> reply, <kbd>t</kbd> repost, <kbd>b</kbd> bookmark, <kbd>m</kbd> mute, <kbd>p</kbd> play, <kbd>o</kbd> open, <kbd>c</kbd> copy link, <kbd>y</kbd> copy text, <kbd>s</kbd> save as image, <kbd>f</kbd> hints in the post</td></tr>
+        <tr><td><kbd>]</kbd> <kbd>]</kbd> / <kbd>[</kbd> <kbd>[</kbd></td><td>Next / previous page (the page's own Next / Previous link)</td></tr>
+        <tr><td><kbd>`</kbd></td><td>Back to the tab you were on before</td></tr>
+        <tr><td><kbd>Ctrl+←</kbd> <kbd>Ctrl+→</kbd></td><td>Previous / next tab, when not typing</td></tr>
+        <tr><td><kbd>?</kbd></td><td>All the keys that work on the page (<kbd>?</kbd> again: the site's own)</td></tr>
+      </table>
+    </details>
+  </section>
+</main>
+<script type="module" src="./main.ts"></script>
 </body>
 </html>

@@ -128,6 +128,7 @@ export async function reopenTab(sessionId?: string): Promise<Api['reopen-tab'][1
 
 // The visible part of the tab, for saving a post as an image (needs the <all_urls> host permission).
 export async function capture(tab: Tab): Promise<Api['capture'][1]> {
+  if (!tab.active) return { ok: false, error: 'this tab is not the one in front' }; // the picture is of whatever tab is in front
   try {
     return { ok: true, dataUrl: await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }) };
   } catch (err) {
@@ -141,16 +142,16 @@ export async function paletteQuery(q: string, tab: Tab): Promise<PaletteData> {
   const [tabs, closed, bookmarks, history, groups] = await Promise.all([
     chrome.tabs.query({}),
     closedTabs(),
-    q && allowed ? chrome.bookmarks.search(q) : Promise.resolve([] as chrome.bookmarks.BookmarkTreeNode[]),
-    q && allowed ? chrome.history.search({ text: q, maxResults: 15, startTime: 0 }) : Promise.resolve([] as chrome.history.HistoryItem[]),
+    q && allowed && !tab.incognito ? chrome.bookmarks.search(q) : Promise.resolve([] as chrome.bookmarks.BookmarkTreeNode[]),
+    q && allowed && !tab.incognito ? chrome.history.search({ text: q, maxResults: 15, startTime: 0 }) : Promise.resolve([] as chrome.history.HistoryItem[]),
     chrome.tabGroups.query({ windowId: tab.windowId }),
   ]);
   return {
     searchAllowed: allowed,
     // Groups in this window other than the tab's own, for "Move tab to group: …".
     groups: groups.filter((g) => g.id !== tab.groupId).map((g) => ({ id: g.id, title: g.title || `${g.color} group` })),
-    tabs: tabs.map((t) => ({ id: t.id!, windowId: t.windowId, title: t.title || '', url: t.url || '' })),
-    closed,
+    tabs: tabs.filter((t) => t.incognito === tab.incognito).map((t) => ({ id: t.id!, windowId: t.windowId, title: t.title || '', url: t.url || '' })),
+    closed: tab.incognito ? [] : closed,
     bookmarks: bookmarks.filter((b) => b.url && !/^javascript:/i.test(b.url)).slice(0, 15) // bookmarklets can't be opened as a tab
      .map((b) => ({ title: b.title, url: b.url! })),
     history: history.map((h) => ({ title: h.title || '', url: h.url || '' })),
