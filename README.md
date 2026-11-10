@@ -105,7 +105,7 @@ through Netflix's own player (setting the video time directly makes Netflix fail
 `J` / `K` next / previous file · `N` / `P` next / previous review thread · `v` mark the file at the
 top viewed / not viewed.
 
-**Jira**: `Y` copies the issue key (`GRC-123`). Jira itself already has `i` assign to me and `d`
+**Jira**: `Y` copies the issue key (`ABC-123`). Jira itself already has `i` assign to me and `d`
 change status.
 
 **Sites with their own keys**: on YouTube, Netflix, Gmail, Google Docs and Figma, `f` and the other bare
