@@ -18,6 +18,7 @@ import { keycastKey } from './keycast';
 import { IDLE, setState, state } from './state';
 
 const PREFIX_WAIT = 1000; // ms for the second key of y f, ]] and [[
+const MODIFIER_KEYS = ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta'];
 
 async function lastTab() {
   const res = await call('last-tab');
@@ -27,6 +28,11 @@ async function lastTab() {
 export function onKeyDown(e: KeyboardEvent) {
   notePress(e);
   keycastKey(e);
+  // A modifier going down on its own is not a key press yet. Acting on it would undo what the key
+  // it leads to is about to do: Alt would cancel the hints (or post mode) that Alt+J (Alt+I) then
+  // shows again, and Shift would close the "?" sheet that "?" then opens again. Only the palette
+  // takes it, as "any key" stopping a pending voice run.
+  if (MODIFIER_KEYS.includes(e.key) && state.phase !== 'palette') return;
   switch (state.phase) {
     case 'selecting': return visualKey(e);
     case 'hinting': return handleHintKey(e);

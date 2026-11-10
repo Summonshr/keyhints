@@ -38,6 +38,19 @@ test.describe('post mode (Alt+I)', () => {
     await Promise.all([kh.page.waitForURL(/\/post\/\d$/), kh.press('o')]);
   });
 
+  test('Alt+I again on a keyboard (the page sees Alt go down first) leaves post mode', async ({ kh }) => {
+    const ring = async () => (await kh.overlayNodes()).some((n) => n.kind === 'ring');
+    await kh.load('/feed');
+    await kh.sendToTab('item-mode');
+    await kh.settle();
+    expect(await ring()).toBe(true);
+    await kh.page.keyboard.down('Alt'); // the browser keeps the I and sends the command
+    await kh.sendToTab('item-mode');
+    await kh.page.keyboard.up('Alt');
+    await kh.settle();
+    expect(await ring()).toBe(false);
+  });
+
   test('counts on the ring, copy the text, save the post as a PNG without the ring in it', async ({ kh }) => {
     await kh.load('/xfeed');
     await kh.sendToTab('item-mode');

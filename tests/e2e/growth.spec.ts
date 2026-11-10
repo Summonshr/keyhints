@@ -46,6 +46,7 @@ test('installing opens the welcome page, where hints, practice and the palette w
   await welcome!.waitForLoadState();
   await welcome!.waitForTimeout(300);
   expect(await welcome!.locator('.hintkey kbd').first().textContent()).toBe('Alt+J');
+  expect(await welcome!.locator('.warn').count(), 'no shortcut warning: every key KeyHints asks for is free here').toBe(0);
   await welcome!.mouse.click(990, 790);
   await k.press('f');
   await k.settle();

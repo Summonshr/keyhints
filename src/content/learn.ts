@@ -46,14 +46,19 @@ function learnableSelector(target: Element): string {
   return '';
 }
 
+// KeyHints' own overlay going up or coming down (hints, a toast, Show keys, the palette taking
+// focus) is not the page reacting.
+const isOverlay = (n: Node | null) => n?.nodeName === 'KEYHINTS-OVERLAY';
+
 // Resolves true if the page reacts to the click within the window: navigation, a focus change,
 // or elements added or removed (attribute and text changes alone don't count: clocks, counters).
 function clickHadEffect(startUrl: string, startFocus: Element | null): Promise<boolean> {
   return new Promise((resolve) => {
     const observer = new MutationObserver((records) => {
-      if (records.some((r) => r.addedNodes.length || r.removedNodes.length)) finish(true);
+      if (records.some((r) => [...r.addedNodes, ...r.removedNodes].some((n) => !isOverlay(n)))) finish(true);
     });
-    const timer = setTimeout(() => finish(location.href !== startUrl || document.activeElement !== startFocus), EFFECT_WINDOW);
+    const focusMoved = () => document.activeElement !== startFocus && !isOverlay(document.activeElement);
+    const timer = setTimeout(() => finish(location.href !== startUrl || focusMoved()), EFFECT_WINDOW);
     function finish(result: boolean) {
       observer.disconnect();
       clearTimeout(timer);

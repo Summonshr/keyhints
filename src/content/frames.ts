@@ -31,9 +31,11 @@ export function collectFrames(starting: StateOf<'starting'>): Promise<{ nonce: s
     const timer = setTimeout(done, 150); // frames that are still loading are skipped
     starting.collector = {
       nonce,
-      add(frameId, items) {
+      add(frameId, items, expected) {
         items.forEach((item, index) => remote.push({ ...item, frameId, index }));
-        if (++replies >= iframes.length) done();
+        // Every frame in the tab answers (hidden and nested ones too); only the visible child
+        // frames counted above end the wait.
+        if (expected && ++replies >= iframes.length) done();
       },
     };
     toFrames({ type: 'frame-collect', nonce });
@@ -93,7 +95,7 @@ export function handleFrameMessage(msg: PageMessage): boolean {
   switch (msg.type) {
     case 'frame-targets':
       if (IS_TOP && state.phase === 'starting' && state.collector && msg.nonce === state.collector.nonce) {
-        state.collector.add(msg.fromFrame!, msg.items);
+        state.collector.add(msg.fromFrame!, msg.items, msg.expected);
       }
       return true;
     case 'frame-collect': {
@@ -101,7 +103,10 @@ export function handleFrameMessage(msg: PageMessage): boolean {
       if (child && child.status === 'showing') childStop();
       const targets = frameVisible ? findClickables(isLearned) : [];
       child = { status: 'collected', nonce: msg.nonce, targets, hints: [], host: null };
-      toTop({ type: 'frame-targets', nonce: msg.nonce, items: targets.map((t) => ({ isLink: t.isLink, text: t.text, href: t.href })) });
+      toTop({
+        type: 'frame-targets', nonce: msg.nonce, expected: frameVisible && parent === top,
+        items: targets.map((t) => ({ isLink: t.isLink, text: t.text, href: t.href })),
+      });
       return true;
     }
     case 'frame-show': {

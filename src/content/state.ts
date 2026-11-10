@@ -15,7 +15,7 @@ import type { ModeId } from '../core/modes';
 import type { Hint } from './hints';
 import type { PaletteState } from './palette';
 
-export interface Collector { nonce: string; add(frameId: number, items: { isLink: boolean; text: string; href: string | null }[]): void }
+export interface Collector { nonce: string; add(frameId: number, items: { isLink: boolean; text: string; href: string | null }[], expected: boolean): void }
 export type FilterState = { status: 'off' | 'typing' | 'applied'; text: string };
 export type PinState = { step: 'none' } | { step: 'element' } | { step: 'key'; hint: Hint };
 

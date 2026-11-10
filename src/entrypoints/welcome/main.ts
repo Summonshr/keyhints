@@ -16,7 +16,9 @@ chrome.commands.getAll().then((commands) => {
   for (const [name, cls] of [['show-hints', 'hintkey'], ['open-palette', 'palettekey']]) {
     for (const el of document.querySelectorAll(`.${cls}`)) el.querySelector('kbd')!.textContent = key(name) || 'no key set';
   }
-  const missing = commands.filter((c) => c.description && !c.shortcut);
+  // Only the commands KeyHints asks a key for: "Mute / unmute the current tab" ships without one.
+  const asked = chrome.runtime.getManifest().commands || {};
+  const missing = commands.filter((c) => asked[c.name!]?.suggested_key && !c.shortcut);
   if (!missing.length) return;
   const warn = document.createElement('p');
   warn.className = 'warn';

@@ -9,6 +9,7 @@
   "include": [
     "../.wxt/wxt.d.ts",
     "**/*.ts",
-    "../playwright.config.ts"
+    "../playwright.config.ts",
+    "../playwright.real.config.ts"
   ]
 }

@@ -70,12 +70,13 @@ async function render() {
   const keys = Object.keys(all).filter((k) => k.startsWith(LABELS_PREFIX)).sort();
   $('memory').replaceChildren(...keys.map((key) => {
     const host = key.slice(LABELS_PREFIX.length);
+    const shown = key === WELCOME_KEY ? 'welcome page (practice)' : host || '(local files)';
     const entries = Object.values(all[key] as Memory).sort((a, b) => a.label.localeCompare(b.label));
     const div = document.createElement('div');
     div.className = 'site';
     const details = document.createElement('details');
     const summary = document.createElement('summary');
-    summary.textContent = `${key === WELCOME_KEY ? 'welcome page (practice)' : host || '(local files)'}: ${entries.length} saved`;
+    summary.textContent = `${shown}: ${entries.length} saved`;
     const ul = document.createElement('ul');
     for (const { label, name, uses, pinned } of entries) {
       const li = document.createElement('li');
@@ -85,14 +86,14 @@ async function render() {
       ul.append(li);
     }
     details.append(summary, ul);
-    div.append(details, button(`Forget ${host}`, async () => {
+    div.append(details, button(`Forget ${shown}`, async () => {
       await call('forget-site', { host });
-      status(`Forgot saved labels for ${host}.`);
+      status(`Forgot saved labels for ${shown}.`);
       render();
     }), button('Copy keymap', async () => {
       const keymap: Backup = { keyhints: 2, labels: { [key]: all[key] as Memory } };
       await navigator.clipboard.writeText(JSON.stringify(keymap));
-      status(`Copied the keymap for ${host}. Paste it into "Share and back up" in anyone's KeyHints settings.`);
+      status(`Copied the keymap for ${shown}. Paste it into "Share and back up" in anyone's KeyHints settings.`);
     }));
     return div;
   }));

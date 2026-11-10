@@ -53,6 +53,16 @@ export async function start(mode: ModeId, scope: Element | null = null) {
   }
   const starting: StateOf<'starting'> = { phase: 'starting', mode, scope, queued: [], collector: null };
   setState(starting);
+  try {
+    await showHints(starting);
+  } catch (err) { // "starting" takes every key: a failure must not leave the page in it
+    if (stillCurrent(starting)) setState(IDLE);
+    throw err;
+  }
+}
+
+async function showHints(starting: StateOf<'starting'>) {
+  const { mode, scope } = starting;
   // Keys typed while focus is inside an iframe would never reach this window.
   if (document.activeElement?.tagName === 'IFRAME') (document.activeElement as HTMLElement).blur();
 
@@ -204,7 +214,11 @@ export function handleHintKey(e: KeyboardEvent) {
   if (e.key === '/') { setFilter(s, 'typing'); s.typed = ''; return render(); }
   if (e.key === '?') { setState(IDLE); return startHelp(); } // same as "?" outside hint mode
   if (e.key === '.') { setState(IDLE); return repeatLast(); }
-  if (e.key === '!') { setPin(s, { step: 'element' }); s.typed = ''; return render(); }
+  if (e.key === '!') { // the same key again goes back, like the mode keys
+    setPin(s, s.pin.step === 'element' ? { step: 'none' } : { step: 'element' });
+    s.typed = '';
+    return render();
+  }
 
   const wanted = modeForKey(e.key, s.typed);
   if (wanted) {
@@ -238,14 +252,13 @@ export function handleHintKey(e: KeyboardEvent) {
 }
 
 // "." in hint mode: do the last pick again, on the copy nearest the centre (e.g. like the next post).
-function repeatLast() {
+export function repeatLast() {
   if (!lastPick) return toast('Nothing to repeat yet');
   const { id, mode } = lastPick;
   const copies = findClickables(isLearned).filter((c) => elementId(c.el, c.text) === id);
   if (!copies.length) return toast('Nothing to repeat here');
   activate(copies.sort((a, b) => centreDistance(a.rect) - centreDistance(b.rect))[0], mode);
 }
-export { repeatLast };
 
 async function rememberPick(hint: Hint) {
   const { promoted } = await call('remember', { host, id: hint.id!, label: hint.label, name: elementName(hint.el!, hint.text) });

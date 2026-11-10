@@ -1,5 +1,4 @@
 // Fixture pages for the end-to-end tests, served by harness.ts.
-/* eslint-disable */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

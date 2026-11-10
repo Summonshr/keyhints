@@ -186,6 +186,15 @@ test.describe('learning from mouse clicks', () => {
     expect(await learned()).toEqual([]);
     expect(await kh.toastText()).toMatch(/Forgot 1 learned/);
   });
+
+  test('KeyHints drawing its own overlay right after a click is not the page reacting', async ({ kh }) => {
+    await kh.load('/learn');
+    await kh.page.click('#plaintext');
+    await kh.press('f'); // within the half second: a toast or hints go up
+    await kh.page.waitForTimeout(800);
+    expect((await kh.local('learned:localhost'))['learned:localhost'] || []).toEqual([]);
+    expect(await kh.toastText()).not.toMatch(/put a hint on that/);
+  });
 });
 
 test.describe('the ? key sheet', () => {
@@ -197,10 +206,10 @@ test.describe('the ? key sheet', () => {
     await kh.press('Escape');
     await kh.settle();
     expect(await kh.nodeText('help')).toBe('');
-    await kh.press('?', '?');
+    await kh.press('Shift+Slash', 'Shift+Slash'); // as on a keyboard: Shift goes down before each "?"
     await kh.settle();
     expect(await kh.nodeText('help')).toBe('');
-    expect(await kh.evalPage(() => (window as any).pageKeys)).toEqual(['?']);
+    expect(await kh.evalPage(() => (window as any).pageKeys)).toEqual(['Shift', 'Shift', '?']);
     await kh.press('f');
     await kh.settle();
     await kh.press('Shift+Slash');

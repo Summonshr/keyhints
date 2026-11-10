@@ -26,5 +26,7 @@ describe('identity', () => {
   it('makes a readable name', () => {
     expect(displayName({ text: 'notifications', aria: '', placeholder: '', href: '' })).toBe('Notifications');
     expect(displayName({ text: '', aria: '', placeholder: '', href: '' })).toBe('(unnamed)');
+    expect(displayName({ text: '', aria: ' ', placeholder: ' ', href: '' }), 'a floating-label field: placeholder=" "').toBe('(unnamed)');
+    expect(displayName({ text: '', aria: ' ', placeholder: 'search', href: '' })).toBe('Search');
   });
 });

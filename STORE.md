@@ -1,6 +1,8 @@
 # Chrome Web Store listing
 
-Copy for the listing, ready to paste. Every claim here is true of v0.6.0; re-check after changes.
+Copy for the listing, ready to paste. Every claim here is true of v0.1.0; re-check after changes.
+The store takes the name and the short description from the manifest, not from the dashboard: they are
+set in `wxt.config.ts` and must match the two below.
 
 ## Name
 
@@ -59,7 +61,8 @@ Single purpose: "Keyboard control of web pages: click, open, copy and scroll by 
 
 ## Screenshots (1280×800)
 
-In `store/` (made with the old test scripts; regenerate by hand after visual changes). In this order:
+In `store/` (1, 2 and 5 retaken for v0.1.0; regenerate by hand after visual changes, starting from the old
+`test/store-shots.mjs` in the git history). In this order:
 
 1. **Every link gets a key.** Hints over a familiar-looking page.
 2. **It learns your favourites.** The "Home now has its own key: H" note.
@@ -69,7 +72,7 @@ In `store/` (made with the old test scripts; regenerate by hand after visual cha
 
 ## Demo video (30–45 s, no voice-over)
 
-`store/demo.webm` was recorded with Show keys on, so viewers see every key (before v0.1 changed labels: re-record before uploading). Upload it to YouTube and link it in the listing.
+`store/demo.webm` (35 s, re-recorded for v0.1.0) was recorded with Show keys on, so viewers see every key. Upload it to YouTube and link it in the listing.
 
 ## Rules for this listing
 

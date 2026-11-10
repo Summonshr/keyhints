@@ -79,7 +79,8 @@ export async function call<K extends ApiType>(type: K, args: Api[K][0] = {} as A
 export type FrameMessage =
   | { type: 'start-request'; mode: string; fromFrame?: number }
   | { type: 'frame-collect'; nonce: string }
-  | { type: 'frame-targets'; nonce: string; items: { isLink: boolean; text: string; href: string | null }[]; fromFrame?: number }
+  // expected: a visible child of the top frame, one of the answers the top frame is waiting for
+  | { type: 'frame-targets'; nonce: string; items: { isLink: boolean; text: string; href: string | null }[]; expected: boolean; fromFrame?: number }
   | { type: 'frame-show'; nonce: string; labels: string[] }
   | { type: 'frame-render'; nonce: string; typed: string; show: string[]; used: string[] }
   | { type: 'frame-activate'; nonce: string; index: number; mode: string }

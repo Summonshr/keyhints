@@ -15,6 +15,18 @@ test.describe('hints appear on the right things', () => {
     expect(PREFIX_FREE(labels) && new Set(labels).size === labels.length).toBe(true);
   });
 
+  test('a link with a malformed address gets a hint like the rest, as a non-link', async ({ kh }) => {
+    await kh.load('/nav');
+    await kh.evalPage(() => document.body.insertAdjacentHTML('afterbegin', '<a id="bad" href="http://">Broken</a> '));
+    await kh.press('f');
+    await kh.settle();
+    expect(await kh.labelFor('#bad')).toBeTruthy();
+    expect(await kh.hints()).toHaveLength(44);
+    await kh.press('Shift+C'); // links only
+    await kh.settle();
+    expect(await kh.visibleHints()).toHaveLength(43);
+  });
+
   test('hints are fully on screen, never overlap, and take the site accent', async ({ kh }) => {
     await kh.load();
     await kh.press('f');
@@ -303,6 +315,29 @@ test.describe('iframes', () => {
     await kh.page.keyboard.type('hey');
     expect(await kh.page.frameLocator('#frm').locator('#finput').inputValue()).toBe('hey');
   });
+
+  test('hidden iframes answering first do not cost the visible one its hints', async ({ kh }) => {
+    for (let round = 0; round < 5; round++) {
+      await kh.load();
+      await kh.evalPage(() => document.body.insertAdjacentHTML('beforeend', '<iframe src="/frame" style="display:none"></iframe>'.repeat(4)));
+      await kh.page.waitForTimeout(400);
+      await kh.press('f');
+      await kh.settle();
+      for (const sel of FRAME_EXPECTED) expect(await kh.labelFor(sel, { frame: true }), `hint in iframe for ${sel}, round ${round}`).toBeTruthy();
+    }
+  });
+
+  test('f inside an iframe closes a ? sheet open on the page and shows hints', async ({ kh }) => {
+    await kh.load();
+    await kh.press('?');
+    await kh.settle();
+    expect(await kh.nodeText('help')).not.toBe('');
+    await kh.page.frameLocator('#frm').locator('#fbtn').focus();
+    await kh.press('f');
+    await kh.page.waitForTimeout(400);
+    expect(await kh.nodeText('help')).toBe('');
+    expect(await kh.hints()).toHaveLength(TOTAL);
+  });
 });
 
 test.describe('Alt+J', () => {
@@ -325,6 +360,18 @@ test.describe('Alt+J', () => {
     await kh.load();
     await kh.press('f');
     await kh.evalPage(() => window.scrollBy(0, 100));
+    await kh.settle();
+    expect(await kh.hints()).toHaveLength(0);
+  });
+
+  test('pressed again on a keyboard (the page sees Alt go down first), it cancels', async ({ kh }) => {
+    await kh.load();
+    await kh.altJ();
+    await kh.settle();
+    expect(await kh.hints()).toHaveLength(TOTAL);
+    await kh.page.keyboard.down('Alt'); // the browser keeps the J and sends the command
+    await kh.altJ();
+    await kh.page.keyboard.up('Alt');
     await kh.settle();
     expect(await kh.hints()).toHaveLength(0);
   });

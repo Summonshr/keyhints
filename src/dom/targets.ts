@@ -93,11 +93,20 @@ function isInvisible(el: Element): boolean {
     !el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
 }
 
-// Absolute URL of a link, or null if it isn't a real link (javascript:, empty).
+// An href as an absolute URL, or null when it can't be one ("http://", a template never filled in).
+export function parseHref(raw: string): URL | null {
+  try {
+    return new URL(raw, document.baseURI);
+  } catch {
+    return null; // not an address: the element is hinted and clicked like a button
+  }
+}
+
+// Absolute URL of a link, or null if it isn't a real link (javascript:, malformed).
 export function linkHref(el: Element): string | null {
   if (!el.matches('a[href], area[href]')) return null;
-  const href = new URL(el.getAttribute('href')!, document.baseURI).href;
-  return href.startsWith('javascript:') ? null : href;
+  const href = parseHref(el.getAttribute('href')!)?.href;
+  return !href || href.startsWith('javascript:') ? null : href;
 }
 
 export function elementText(el: Element): string {

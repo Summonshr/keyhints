@@ -247,5 +247,3 @@ export function paletteKey(e: KeyboardEvent) {
     if (item) runResult(item, e.shiftKey);
   }
 }
-
-export const inPalette = () => inPhase('palette') !== null;

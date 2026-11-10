@@ -192,6 +192,16 @@ test.describe('repeat (.) and pin (!)', () => {
     const labels = await kh.labels();
     expect(PREFIX_FREE(labels) && new Set(labels).size === labels.length).toBe(true);
   });
+
+  test('! again leaves pinning', async ({ kh }) => {
+    await kh.load();
+    await kh.press('f', 'Shift+Digit1');
+    await kh.settle();
+    expect(await kh.barText()).toMatch(/PIN A KEY/);
+    await kh.press('Shift+Digit1');
+    await kh.settle();
+    expect(await kh.barText()).toMatch(/^CLICK/);
+  });
 });
 
 test.describe('learned keys: protected, undoable, listed', () => {

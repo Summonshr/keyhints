@@ -6,8 +6,10 @@ export default defineConfig({
   outDir: '.output',
   manifestVersion: 3,
   manifest: {
-    name: 'KeyHints',
-    description: 'Keyboard hints for clicking links and focusing inputs without a mouse.',
+    // The store listing's title and summary come from here (STORE.md has the rest of the listing).
+    name: 'KeyHints – Click Anything Without a Mouse',
+    short_name: 'KeyHints',
+    description: 'Press Alt+J and every link and button gets a key. Your favourite buttons learn their own letter. No account, no tracking.',
     // sessions: the palette's "Reopen closed tab" restores the tab with its history.
     // scripting: after an update, open tabs get the new content script without a reload.
     permissions: ['storage', 'tabs', 'tabGroups', 'sessions', 'scripting'],

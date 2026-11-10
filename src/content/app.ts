@@ -54,7 +54,13 @@ export function startContent(lifecycle: Lifecycle) {
   if (IS_TOP) installTips();
   chrome.runtime.onMessage.addListener((msg: PageMessage) => {
     if (!alive()) return;
-    if (msg.type === 'start-request') { if (IS_TOP) ready.then(() => start(msg.mode as ModeId)); return; }
+    if (msg.type === 'start-request') { // hints asked for inside a child frame, whatever this frame is showing
+      if (IS_TOP) ready.then(() => {
+        if (state.phase === 'help' || state.phase === 'passkey') setState(IDLE); // no way from those straight to hints
+        start(msg.mode as ModeId);
+      });
+      return;
+    }
     ready.then(() => onMessage(msg));
   });
   ready.then(reportSiteState);

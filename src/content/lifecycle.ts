@@ -14,4 +14,3 @@ export function setLifecycle(l: Lifecycle) {
 }
 
 export const alive = () => !lifecycle.isInvalid && !!chrome.runtime?.id;
-export const onGone = (cb: () => void) => lifecycle.onInvalidated(cb);

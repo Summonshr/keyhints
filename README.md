@@ -215,7 +215,7 @@ If saved labels would force three-key labels, the least used (then least recent)
 npm install
 npm run build         # the extension, in .output/chrome-mv3
 npm run typecheck     # TypeScript, extension and tests
-npm test              # unit tests: labels, identity, memory, ranking, sync (Vitest, milliseconds)
+npm test              # unit tests: labels, identity, memory, ranking, mode keys (Vitest, milliseconds)
 npm run e2e           # build + end-to-end suite in headless Chromium (Playwright, ~2.5 min)
 npm run real-sites    # smoke test on Wikipedia, GitHub, Hacker News, YouTube, MDN (needs internet)
 npm run check         # typecheck + unit + end-to-end
@@ -225,7 +225,7 @@ Layout (`src/`):
 
 - `core/`: pure logic, no DOM and no `chrome.*`, unit-tested: labels (generated, from names,
   prefix-free), element identity, saved-label memory (remember, promote, pin, undo, fit), palette
-  ranking, the key space and modes, sync merging.
+  ranking, the key space and modes. Sync merging is here too, checked by the end-to-end suite.
 - `dom/`: what gets a hint (one rule list), the overlay, mouse events, claiming keys from press to
   release (also when the release lands on another tab).
 - `content/`: the page's one state machine (`state.ts`; each phase's owner registers its cleanup)

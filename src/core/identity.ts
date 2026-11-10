@@ -44,8 +44,8 @@ export function identityKey(f: IdentityFields): string {
 }
 
 // A short readable name for the "?" sheet and settings: the text, else the aria-label, placeholder,
-// or link path.
+// or link path. One that is only spaces doesn't count (floating-label fields have placeholder=" ").
 export function displayName(f: Pick<IdentityFields, 'text' | 'aria' | 'placeholder' | 'href'>): string {
-  const name = (f.text || f.aria || f.placeholder || f.href || '(unnamed)').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const name = ([f.text, f.aria, f.placeholder, f.href].map((s) => s.replace(/\s+/g, ' ').trim()).find(Boolean) || '(unnamed)').slice(0, 60);
   return name[0].toUpperCase() + name.slice(1);
 }
